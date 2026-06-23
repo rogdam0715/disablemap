@@ -176,6 +176,24 @@
   .reasons-h { font-size: 12px; color: var(--muted); margin-bottom: 5px; }
   .reason { font-size: 13px; color: #5b6573; font-style: italic; margin: 3px 0; }
 
+  /* 사진 */
+  .photos { display: flex; gap: 6px; overflow-x: auto; margin-top: 10px; padding-bottom: 2px; }
+  .photos .photo {
+    height: 84px; width: auto; max-width: 140px; object-fit: cover;
+    border-radius: 8px; cursor: pointer; flex-shrink: 0; border: 1px solid var(--line);
+  }
+  .photos.mini { margin-top: 8px; }
+  .photos.mini .photo { height: 46px; }
+  .photo-edit { display: flex; flex-wrap: wrap; gap: 8px; }
+  .photo-edit:empty { display: none; }
+  .pthumb { position: relative; width: 70px; height: 70px; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); flex-shrink: 0; }
+  .pthumb img { width: 100%; height: 100%; object-fit: cover; }
+  .pthumb.uploading { display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--muted); background: #fafaf8; }
+  .pthumb-x {
+    position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; border: none;
+    border-radius: 50%; background: rgba(20,24,30,.6); color: #fff; cursor: pointer; font-size: 13px; line-height: 1;
+  }
+
   .empty { padding: 54px 26px; text-align: center; color: var(--muted); }
   .empty .big { font-size: 34px; margin-bottom: 12px; opacity: .5; }
   .empty b { color: var(--ink); }
@@ -461,6 +479,13 @@
       </div>
 
       <div class="field">
+        <label>사진 <span class="hint">· 선택, 최대 5장</span></label>
+        <div class="photo-edit" id="photoThumbs"></div>
+        <input type="file" id="f-photo" accept="image/*" multiple style="display:none" />
+        <button class="btn btn-soft btn-block" id="addPhotoBtn" type="button" style="margin-top:10px;">📷 사진 추가</button>
+      </div>
+
+      <div class="field">
         <label>위치 <span class="hint">· 필수</span></label>
         <div class="loc-status" id="locStatus">위에서 가게를 검색해 고르면 위치가 자동으로 채워져요.</div>
         <button class="btn btn-soft btn-block" id="pickLocBtn" style="margin-top:10px;">📍 지도에서 직접 찍기</button>
@@ -541,6 +566,11 @@ function reasonsHtml(p) {
   return `<div class="reasons"><div class="reasons-h">이런 점이 아쉬웠대요</div>${
     info.reasons.map(r => `<p class="reason">“${escapeHtml(r)}”</p>`).join('')}</div>`;
 }
+function photosHtml(p, cls) {
+  if (!p.photos || !p.photos.length) return '';
+  return `<div class="photos ${cls || ''}">${p.photos.map(u =>
+    `<img src="${escapeHtml(u)}" class="photo" alt="가게 사진" onclick="window.open('${escapeHtml(u)}','_blank')">`).join('')}</div>`;
+}
 
 /* ---------- 지도 마커 ---------- */
 function renderMarkers(filtered) {
@@ -555,6 +585,7 @@ function renderMarkers(filtered) {
         <div style="font-size:13px;color:#8b909a">${catLabel(p.category)}${p.address ? ' · ' + escapeHtml(p.address) : ''}</div>
         ${p.note ? `<p class="desc">“${escapeHtml(p.note)}”</p>` : ''}
         <div class="tags">${tagsHtml}</div>
+        ${photosHtml(p)}
         ${reactionBarHtml(p)}
         ${reasonsHtml(p)}
       </div>`);
@@ -606,6 +637,7 @@ function renderList() {
         </div>
         ${p.address ? `<p class="addr">${escapeHtml(p.address)}</p>` : ''}
         <div class="tags">${tagsHtml}</div>
+        ${photosHtml(p, 'mini')}
         <div class="count">👍 ${info.likes} · 👎 ${info.dislikes}</div>
       </div>`;
     }).join('');
@@ -643,6 +675,7 @@ function detailHtml(p) {
     ${p.address ? `<p class="dc-addr">${escapeHtml(p.address)}</p>` : ''}
     <div class="tags" style="margin-top:12px">${tags || '<span class="tag" style="background:none;color:#b4b8c0">등록된 정보가 없어요</span>'}</div>
     ${p.note ? `<p class="dc-note">“${escapeHtml(p.note)}”</p>` : ''}
+    ${photosHtml(p)}
     ${reactionBarHtml(p)}
     ${reasonsHtml(p)}`;
 }
@@ -816,6 +849,57 @@ document.getElementById('tagPick').innerHTML = TAGS.map(t =>
 
 let editingId = null;
 
+/* ---------- 사진 업로드 ---------- */
+let formPhotos = [];     // 현재 폼에 담긴 사진 URL들
+let uploadingCount = 0;
+
+function renderPhotoThumbs() {
+  const box = document.getElementById('photoThumbs');
+  box.innerHTML = formPhotos.map((u, i) =>
+    `<div class="pthumb"><img src="${escapeHtml(u)}" alt="사진"><button type="button" class="pthumb-x" data-i="${i}" aria-label="사진 삭제">×</button></div>`
+  ).join('') + (uploadingCount > 0 ? `<div class="pthumb uploading">올리는 중…</div>` : '');
+  box.querySelectorAll('.pthumb-x').forEach(b =>
+    b.addEventListener('click', () => { formPhotos.splice(Number(b.dataset.i), 1); renderPhotoThumbs(); }));
+}
+
+function resizeImage(file, maxW) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      if (width > maxW) { height = Math.round(height * maxW / width); width = maxW; }
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      canvas.toBlob(b => b ? resolve(b) : reject(new Error('변환 실패')), 'image/jpeg', 0.85);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('이미지를 읽을 수 없어요')); };
+    img.src = url;
+  });
+}
+
+async function uploadPhoto(file) {
+  const blob = await resizeImage(file, 1280);
+  const path = `${currentUser.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+  const { error } = await sb.storage.from('place-photos').upload(path, blob, { contentType: 'image/jpeg' });
+  if (error) throw error;
+  return sb.storage.from('place-photos').getPublicUrl(path).data.publicUrl;
+}
+
+document.getElementById('addPhotoBtn').addEventListener('click', () => document.getElementById('f-photo').click());
+document.getElementById('f-photo').addEventListener('change', async (e) => {
+  const files = [...e.target.files]; e.target.value = '';
+  for (const f of files) {
+    if (formPhotos.length + uploadingCount >= 5) { alert('사진은 최대 5장까지예요.'); break; }
+    uploadingCount++; renderPhotoThumbs();
+    try { const url = await uploadPhoto(f); formPhotos.push(url); }
+    catch (err) { alert('사진 업로드 실패: ' + (err.message || '')); }
+    finally { uploadingCount--; renderPhotoThumbs(); }
+  }
+});
+
 /* ---------- 수정/삭제 메뉴 ---------- */
 let kebabTargetId = null;
 const kebabMenu = document.getElementById('kebabMenu');
@@ -865,6 +949,7 @@ function resetForm() {
   document.getElementById('f-note').value = '';
   document.querySelector('input[name=cat][value=restaurant]').checked = true;
   document.querySelectorAll('#tagPick input').forEach(c => c.checked = false);
+  formPhotos = []; uploadingCount = 0; renderPhotoThumbs();
   pickedLatLng = null; setLocStatus();
 }
 
@@ -881,6 +966,7 @@ function openEditModal(id) {
   document.getElementById('f-addr').value = p.address || '';
   document.getElementById('f-note').value = p.note || '';
   document.querySelectorAll('#tagPick input').forEach(c => c.checked = (p.tags || []).includes(c.value));
+  formPhotos = [...(p.photos || [])]; uploadingCount = 0; renderPhotoThumbs();
   pickedLatLng = { lat: p.lat, lng: p.lng };
   setLocStatus();
   openModal();
@@ -984,11 +1070,12 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
   if (!pickedLatLng) { alert('지도에서 위치를 찍어주세요.\n("📍 지도에서 직접 찍기" 버튼)'); return; }
   const category = document.querySelector('input[name=cat]:checked').value;
   const tags = [...document.querySelectorAll('#tagPick input:checked')].map(c => c.value);
+  if (uploadingCount > 0) { alert('사진을 올리는 중이에요. 잠시만요.'); return; }
   const data = {
     name, category,
     address: document.getElementById('f-addr').value.trim(),
     note: document.getElementById('f-note').value.trim(),
-    tags, lat: pickedLatLng.lat, lng: pickedLatLng.lng,
+    tags, photos: formPhotos, lat: pickedLatLng.lat, lng: pickedLatLng.lng,
   };
   if (tempMarker) { map.removeLayer(tempMarker); tempMarker = null; }
   const saveBtn = document.getElementById('saveBtn'); saveBtn.disabled = true;
