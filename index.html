@@ -153,18 +153,23 @@
   }
   .place .cat-dot.cafe { background: var(--accent-soft); color: var(--accent); }
   .place .addr { font-size: 12.5px; color: var(--muted); margin: 0 0 9px; }
-  .place .count { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .place .count { font-size: 12px; color: var(--muted); margin-top: 8px; text-align: right; margin-right: -28px; }
   .tags { display: flex; flex-wrap: wrap; gap: 5px; }
   .tag {
     font-size: 11.5px; font-weight: 500; background: #f3f2ee; color: #6b7078;
-    padding: 3px 9px; border-radius: 6px;
+    padding: 3px 9px; border-radius: 6px; white-space: nowrap;
   }
+  .tag-more { background: #e7e4dd; color: var(--muted); }
+  .tags-clamp { flex-wrap: wrap; }
 
   /* 좋아요/싫어요 */
-  .react-bar { display: flex; gap: 8px; margin-top: 12px; }
+  .react-bar { display: flex; gap: 6px; margin-top: 12px; justify-content: flex-end; }
+  .leaflet-popup-content .react-bar { margin-right: -10px; }
+  .detail-card .react-bar { margin-right: -6px; }
   .react-btn {
-    border: 1px solid var(--line-strong); background: #fff; border-radius: 9px;
-    padding: 7px 13px; cursor: pointer; font-size: 13px; color: var(--muted); transition: all .12s;
+    border: 1px solid var(--line-strong); background: #fff; border-radius: 8px;
+    padding: 4px 9px; cursor: pointer; font-size: 12px; color: var(--muted); transition: all .12s;
+    line-height: 1.4;
   }
   .react-btn b { color: var(--ink); }
   .react-btn:hover { border-color: var(--faint); }
@@ -180,10 +185,42 @@
   .photos { display: flex; gap: 6px; overflow-x: auto; margin-top: 10px; padding-bottom: 2px; }
   .photos .photo {
     height: 84px; width: auto; max-width: 140px; object-fit: cover;
-    border-radius: 8px; cursor: pointer; flex-shrink: 0; border: 1px solid var(--line);
+    border-radius: 8px; flex-shrink: 0; border: 1px solid var(--line); cursor: zoom-in;
   }
-  .photos.mini { margin-top: 8px; }
-  .photos.mini .photo { height: 46px; }
+
+  /* 사진 라이트박스 */
+  .lightbox {
+    position: fixed; inset: 0; background: rgba(15,18,24,.85);
+    display: none; align-items: center; justify-content: center; z-index: 3000;
+    padding: 24px;
+  }
+  .lightbox.open { display: flex; }
+  .lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; box-shadow: var(--shadow); }
+  .lightbox .lb-close {
+    position: absolute; top: 16px; right: 18px; width: 40px; height: 40px;
+    border: none; background: rgba(255,255,255,.15); color: #fff; font-size: 22px;
+    border-radius: 50%; cursor: pointer; line-height: 1;
+  }
+  .lightbox .lb-close:hover { background: rgba(255,255,255,.28); }
+  .lightbox .lb-nav {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    border: none; background: rgba(255,255,255,.15); color: #fff;
+    width: 44px; height: 44px; border-radius: 50%; cursor: pointer; font-size: 22px; line-height: 1;
+  }
+  .lightbox .lb-nav:hover { background: rgba(255,255,255,.28); }
+  .lightbox .lb-prev { left: 18px; }
+  .lightbox .lb-next { right: 18px; }
+  .lightbox .lb-count { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); color: #fff; font-size: 13px; background: rgba(0,0,0,.4); padding: 4px 10px; border-radius: 999px; }
+  /* 목록 썸네일 — 같은 줄 왼쪽, 클릭 불가 */
+  .place-row { display: block; }
+  .place-thumbs { display: flex; gap: 6px; margin-top: 10px; }
+  .place-thumbs .place-thumb { width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); flex-shrink: 0; }
+  .place-thumbs .place-thumb-more {
+    width: 60px; height: 60px; border-radius: 8px; border: 1px solid var(--line);
+    background: #f1f0ec; color: var(--muted); display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 500; flex-shrink: 0;
+  }
+  .place-body { min-width: 0; }
   .photo-edit { display: flex; flex-wrap: wrap; gap: 8px; }
   .photo-edit:empty { display: none; }
   .pthumb { position: relative; width: 70px; height: 70px; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); flex-shrink: 0; }
@@ -366,6 +403,15 @@
     <div id="map"></div>
     <div class="detail-card" id="detailCard"></div>
   </div>
+</div>
+
+<!-- 사진 라이트박스 -->
+<div class="lightbox" id="lightbox">
+  <button class="lb-close" id="lbClose" aria-label="닫기">×</button>
+  <button class="lb-nav lb-prev" id="lbPrev" aria-label="이전 사진">‹</button>
+  <img id="lbImg" alt="가게 사진">
+  <button class="lb-nav lb-next" id="lbNext" aria-label="다음 사진">›</button>
+  <div class="lb-count" id="lbCount"></div>
 </div>
 
 <!-- 수정/삭제 메뉴 -->
@@ -569,7 +615,7 @@ function reasonsHtml(p) {
 function photosHtml(p, cls) {
   if (!p.photos || !p.photos.length) return '';
   return `<div class="photos ${cls || ''}">${p.photos.map(u =>
-    `<img src="${escapeHtml(u)}" class="photo" alt="가게 사진" onclick="window.open('${escapeHtml(u)}','_blank')">`).join('')}</div>`;
+    `<img src="${escapeHtml(u)}" class="photo" alt="가게 사진">`).join('')}</div>`;
 }
 
 /* ---------- 지도 마커 ---------- */
@@ -627,8 +673,16 @@ function renderList() {
   } else {
     listEl.innerHTML = filtered.map(p => {
       const info = reactionInfo(p.id);
-      const tagsHtml = (p.tags || []).slice(0, 4).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join(' ');
+      const tagsHtml = (p.tags || []).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('');
       const own = currentUser && p.created_by === currentUser.id;
+      const allPhotos = p.photos || [];
+      const shown = allPhotos.slice(0, 3);
+      const extra = allPhotos.length - shown.length;
+      const thumbs = shown.length
+        ? `<div class="place-thumbs">${
+            shown.map(u => `<img class="place-thumb" src="${escapeHtml(u)}" alt="">`).join('')}${
+            extra > 0 ? `<div class="place-thumb-more">+${extra}</div>` : ''}</div>`
+        : '';
       return `<div class="place ${p.id === selectedId ? 'selected' : ''}" data-id="${p.id}">
         ${own ? `<button class="kebab" data-id="${p.id}" aria-label="수정·삭제 메뉴">⋯</button>` : ''}
         <div class="top">
@@ -636,8 +690,8 @@ function renderList() {
           <span class="name">${escapeHtml(p.name)}</span>
         </div>
         ${p.address ? `<p class="addr">${escapeHtml(p.address)}</p>` : ''}
-        <div class="tags">${tagsHtml}</div>
-        ${photosHtml(p, 'mini')}
+        <div class="tags tags-clamp">${tagsHtml}</div>
+        ${thumbs}
         <div class="count">👍 ${info.likes} · 👎 ${info.dislikes}</div>
       </div>`;
     }).join('');
@@ -645,8 +699,38 @@ function renderList() {
       el.addEventListener('click', () => selectPlace(el.dataset.id, true)));
     listEl.querySelectorAll('.kebab').forEach(btn =>
       btn.addEventListener('click', e => { e.stopPropagation(); openKebab(btn.dataset.id, btn); }));
+    listEl.querySelectorAll('.tags-clamp').forEach(clampTags);
   }
   renderMarkers(filtered);
+}
+
+/* 태그를 한 줄로 고정하고, 넘치면 +N 으로 표시 */
+function clampTags(container) {
+  const chips = [...container.querySelectorAll('.tag:not(.tag-more)')];
+  const old = container.querySelector('.tag-more'); if (old) old.remove();
+  chips.forEach(c => c.style.display = '');
+  if (chips.length === 0) return;
+  const firstTop = chips[0].offsetTop;
+  const firstRow = chips.filter(c => c.offsetTop === firstTop);
+  if (firstRow.length === chips.length) return;            // 다 한 줄에 들어감
+  let hidden = chips.length - firstRow.length;
+  chips.slice(firstRow.length).forEach(c => c.style.display = 'none');
+  const more = document.createElement('span');
+  more.className = 'tag tag-more';
+  more.textContent = '+' + hidden;
+  container.appendChild(more);
+  while (more.offsetTop > firstTop && firstRow.length > 1) {  // +N 칩이 넘치면 줄여감
+    firstRow.pop().style.display = 'none';
+    hidden++; more.textContent = '+' + hidden;
+  }
+}
+let _clampTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(_clampTimer);
+  _clampTimer = setTimeout(() => document.querySelectorAll('#list .tags-clamp').forEach(clampTags), 150);
+});
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(() => document.querySelectorAll('#list .tags-clamp').forEach(clampTags));
 }
 
 const isMobile = () => window.matchMedia('(max-width: 760px)').matches;
@@ -1098,6 +1182,46 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+
+/* ---------- 사진 확대 (라이트박스) ---------- */
+const lightbox = document.getElementById('lightbox');
+const lbImg = document.getElementById('lbImg');
+const lbCount = document.getElementById('lbCount');
+let lbGroup = [], lbIndex = 0;
+
+function openLightbox(srcGroup, startSrc) {
+  lbGroup = srcGroup;
+  lbIndex = Math.max(0, srcGroup.indexOf(startSrc));
+  renderLightbox();
+  lightbox.classList.add('open');
+}
+function closeLightbox() { lightbox.classList.remove('open'); }
+function renderLightbox() {
+  lbImg.src = lbGroup[lbIndex] || '';
+  const many = lbGroup.length > 1;
+  document.getElementById('lbPrev').style.display = many ? '' : 'none';
+  document.getElementById('lbNext').style.display = many ? '' : 'none';
+  lbCount.style.display = many ? '' : 'none';
+  lbCount.textContent = many ? `${lbIndex+1} / ${lbGroup.length}` : '';
+}
+document.getElementById('lbClose').addEventListener('click', closeLightbox);
+document.getElementById('lbPrev').addEventListener('click', e => { e.stopPropagation(); lbIndex = (lbIndex - 1 + lbGroup.length) % lbGroup.length; renderLightbox(); });
+document.getElementById('lbNext').addEventListener('click', e => { e.stopPropagation(); lbIndex = (lbIndex + 1) % lbGroup.length; renderLightbox(); });
+lightbox.addEventListener('click', e => { if (e.target === lightbox) closeLightbox(); });
+document.addEventListener('keydown', e => {
+  if (!lightbox.classList.contains('open')) return;
+  if (e.key === 'Escape') closeLightbox();
+  else if (e.key === 'ArrowLeft' && lbGroup.length > 1) { lbIndex = (lbIndex - 1 + lbGroup.length) % lbGroup.length; renderLightbox(); }
+  else if (e.key === 'ArrowRight' && lbGroup.length > 1) { lbIndex = (lbIndex + 1) % lbGroup.length; renderLightbox(); }
+});
+
+/* 상세/말풍선의 사진 클릭 → 라이트박스. 목록의 .place-thumb는 제외 */
+document.addEventListener('click', e => {
+  const img = e.target.closest('.photos .photo');
+  if (!img) return;
+  const group = [...img.closest('.photos').querySelectorAll('.photo')].map(i => i.src);
+  openLightbox(group, img.src);
+});
 
 /* ---------- 시작 + 로그인 상태 감지 ---------- */
 sb.auth.onAuthStateChange((_event, session) => {
