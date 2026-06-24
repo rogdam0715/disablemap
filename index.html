@@ -104,12 +104,25 @@
 
   .filters { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; align-items: center; }
   .locate-btn {
-    font-size: 13px; font-weight: 500; padding: 6px 13px;
-    border: 1px solid var(--line-strong); border-radius: 999px;
+    font-size: 13px; font-weight: 500; padding: 7px 13px;
+    border: 1px solid var(--line-strong); border-radius: 10px;
     background: #fff; cursor: pointer; color: var(--ink); transition: all .12s;
-    margin-left: auto;
+    margin-left: auto; font-family: inherit;
   }
   .locate-btn:hover { border-color: var(--ink); }
+
+  .cat-popover {
+    position: absolute; z-index: 1800; background: #fff; border: 1px solid var(--line);
+    border-radius: 10px; box-shadow: var(--shadow); padding: 6px; min-width: 132px; display: none;
+  }
+  .cat-popover.open { display: block; }
+  .cat-popover button {
+    display: block; width: 100%; text-align: left; border: none; background: none;
+    padding: 9px 12px; font-size: 14px; color: var(--ink); border-radius: 6px;
+    cursor: pointer; font-family: inherit;
+  }
+  .cat-popover button:hover { background: #f4f4f4; }
+  .cat-popover button.active { background: var(--accent-soft); color: var(--accent-dark); font-weight: 500; }
 
   /* 길찾기 버튼 */
   .nav-bar { margin-top: 12px; }
@@ -122,24 +135,28 @@
   .nav-btn:hover { background: #2a2f37; }
   .popup-detail .nav-btn { padding: 7px 10px; font-size: 12.5px; border-radius: 8px; }
   .chip {
-    font-size: 13px; font-weight: 500; padding: 6px 13px;
-    border: 1px solid var(--line-strong); border-radius: 999px;
+    font-size: 13px; font-weight: 500; padding: 7px 13px;
+    border: 1px solid var(--line-strong); border-radius: 10px;
     background: #fff; cursor: pointer; color: var(--muted); transition: all .12s;
+    font-family: inherit;
   }
   .chip:hover { border-color: var(--faint); }
-  .chip.active { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .chip.active { background: #fff; border-color: var(--accent); color: var(--accent-dark); }
 
   .list-head {
     padding: 14px 20px 6px; font-size: 12px; font-weight: 500;
     color: var(--faint); letter-spacing: .04em; text-transform: uppercase;
   }
-  .list { flex: 1; overflow-y: auto; padding: 0 10px 14px; }
+  .list { flex: 1; overflow-y: auto; padding: 0; }
 
   .place {
     position: relative;
-    padding: 14px 40px 14px 14px; margin: 4px 0; border-radius: 12px; cursor: pointer;
-    transition: background .12s; border: 1px solid transparent;
+    padding: 16px 44px 16px 18px;
+    border-bottom: 1px solid var(--line);
+    cursor: pointer;
+    transition: background .12s;
   }
+  .place:last-child { border-bottom: none; }
   .kebab {
     position: absolute; top: 10px; right: 8px; width: 30px; height: 30px;
     border: none; background: none; border-radius: 8px; cursor: pointer;
@@ -161,7 +178,7 @@
   .kebab-menu button.danger { color: var(--danger); }
   .kebab-menu button.danger:hover { background: var(--danger-soft); }
   .place:hover { background: #f7f7f7; }
-  .place.selected { background: var(--accent-soft); border-color: #f3d7d2; }
+  .place.selected { background: var(--accent-soft); }
   .place .top { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
   .place .name { font-size: 15.5px; font-weight: 700; letter-spacing: -.01em; }
   .place .cat-dot {
@@ -403,9 +420,9 @@
       </div>
       <div class="filters">
         <button class="chip active" data-cat="all">전체</button>
-        <button class="chip" data-cat="restaurant">식당</button>
-        <button class="chip" data-cat="cafe">카페</button>
-        <button class="chip" id="favChip" data-cat="fav" style="display:none">⭐ 즐겨찾기</button>
+        <button class="chip" id="catChip" data-cat="cat">카테고리 ▾</button>
+        <button class="chip" id="favChip" data-cat="fav" style="display:none">👍 좋아요</button>
+        <button class="chip" id="mineChip" data-cat="mine" style="display:none">📝 내가 등록</button>
         <button class="locate-btn" id="locateBtn">📍 내 위치</button>
       </div>
     </div>
@@ -431,6 +448,12 @@
   <img id="lbImg" alt="가게 사진">
   <button class="lb-nav lb-next" id="lbNext" aria-label="다음 사진">›</button>
   <div class="lb-count" id="lbCount"></div>
+</div>
+
+<!-- 카테고리 선택 메뉴 -->
+<div class="cat-popover" id="catPopover">
+  <button data-cat="restaurant">🍚 식당</button>
+  <button data-cat="cafe">☕ 카페</button>
 </div>
 
 <!-- 수정/삭제 메뉴 -->
@@ -671,7 +694,9 @@ function getFiltered() {
     if (activeCat === 'fav') {
       const info = reactionInfo(p.id);
       if (!(info.mine && info.mine.type === 'like')) return false;
-    } else if (activeCat !== 'all' && p.category !== activeCat) {
+    } else if (activeCat === 'mine') {
+      if (!currentUser || p.created_by !== currentUser.id) return false;
+    } else if ((activeCat === 'restaurant' || activeCat === 'cafe') && p.category !== activeCat) {
       return false;
     }
     if (searchText) {
@@ -684,13 +709,17 @@ function getFiltered() {
 
 function renderList() {
   const filtered = getFiltered();
-  document.getElementById('listHead').textContent =
-    (activeCat === 'fav' ? '내 즐겨찾기 · ' : '등록된 장소 · ') + filtered.length + '곳';
+  const headLabel = activeCat === 'fav'  ? '내 좋아요 · '
+                  : activeCat === 'mine' ? '내가 등록한 장소 · '
+                  : activeCat === 'restaurant' ? '식당 · '
+                  : activeCat === 'cafe' ? '카페 · '
+                  : '등록된 장소 · ';
+  document.getElementById('listHead').textContent = headLabel + filtered.length + '곳';
   const listEl = document.getElementById('list');
 
   if (filtered.length === 0) {
     const msg = activeCat === 'fav'
-      ? '아직 즐겨찾기가 없어요.<br>마음에 드는 곳에 👍를 눌러보세요.'
+      ? '아직 좋아요한 장소가 없어요.<br>마음에 드는 곳에 👍를 눌러보세요.'
       : '아직 등록된 장소가 없어요.<br>위 <b>＋ 장소 추가</b>로 첫 장소를 올려보세요.';
     listEl.innerHTML = `<div class="empty"><div class="big">📍</div>${msg}</div>`;
   } else {
@@ -855,11 +884,50 @@ window.openDirections = (placeId) => {
 };
 
 document.getElementById('search').addEventListener('input', e => { searchText = e.target.value.trim(); renderList(); });
-document.querySelectorAll('.chip').forEach(chip => chip.addEventListener('click', () => {
-  if (chip.dataset.cat === 'fav' && !currentUser) { openAuth(); return; }
+
+const catChip = document.getElementById('catChip');
+const catPopover = document.getElementById('catPopover');
+
+function resetCatChip() {
+  catChip.textContent = '카테고리 ▾';
+  catPopover.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+}
+
+document.querySelectorAll('.chip').forEach(chip => chip.addEventListener('click', e => {
+  const cat = chip.dataset.cat;
+  if (cat === 'cat') {                                            // 카테고리는 드롭다운만 토글
+    e.stopPropagation();
+    catPopover.classList.toggle('open');
+    if (catPopover.classList.contains('open')) {
+      const r = chip.getBoundingClientRect();
+      catPopover.style.left = r.left + 'px';
+      catPopover.style.top = (r.bottom + 4) + 'px';
+    }
+    return;
+  }
+  if ((cat === 'fav' || cat === 'mine') && !currentUser) { openAuth(); return; }
   document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-  chip.classList.add('active'); activeCat = chip.dataset.cat; renderList();
+  chip.classList.add('active');
+  activeCat = cat;
+  resetCatChip();
+  catPopover.classList.remove('open');
+  renderList();
 }));
+
+catPopover.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => {
+  const cat = btn.dataset.cat;
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  catChip.classList.add('active');
+  catChip.textContent = (cat === 'restaurant' ? '🍚 식당' : '☕ 카페') + ' ▾';
+  catPopover.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === btn));
+  activeCat = cat;
+  catPopover.classList.remove('open');
+  renderList();
+}));
+
+document.addEventListener('click', e => {
+  if (!catPopover.contains(e.target) && e.target !== catChip) catPopover.classList.remove('open');
+});
 
 /* ---------- 좋아요 / 싫어요 ---------- */
 window.react = async (placeId, type) => {
@@ -992,9 +1060,11 @@ function renderAuthBar() {
     document.getElementById('loginBtn').addEventListener('click', openAuth);
   }
   document.getElementById('favChip').style.display = currentUser ? '' : 'none';
-  if (!currentUser && activeCat === 'fav') {  // 로그아웃하면 전체로 되돌림
+  document.getElementById('mineChip').style.display = currentUser ? '' : 'none';
+  if (!currentUser && (activeCat === 'fav' || activeCat === 'mine')) {  // 로그아웃하면 전체로 되돌림
     activeCat = 'all';
     document.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.dataset.cat === 'all'));
+    if (typeof resetCatChip === 'function') resetCatChip();
   }
 }
 
