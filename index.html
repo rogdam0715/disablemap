@@ -842,8 +842,16 @@ window.openDirections = (placeId) => {
   const p = places.find(x => x.id === placeId);
   if (!p) return;
   const enc = encodeURIComponent(p.name);
-  const url = `https://map.naver.com/p/directions/-/-/${p.lng},${p.lat},${enc},,PLACE_POI/walk?c=15,${p.lng},${p.lat},0,0,0,dh`;
-  window.open(url, '_blank', 'noopener,noreferrer');
+  const isPhone = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (isPhone) {
+    // 휴대폰: 네이버 지도 앱 딥링크 (앱 없으면 스토어로 안내됨)
+    const appUrl = `nmap://route/public?dlat=${p.lat}&dlng=${p.lng}&dname=${enc}&appname=disablemap.app`;
+    window.location.href = appUrl;
+  } else {
+    // PC: 네이버 지도 웹 길찾기 (출발지 비움, 도착지=장소)
+    const webUrl = `https://map.naver.com/p/directions/-/${p.lng},${p.lat},${enc},,PLACE_POI/-/transit?c=15.00,${p.lng},${p.lat},0,0,0,dh`;
+    window.open(webUrl, '_blank', 'noopener,noreferrer');
+  }
 };
 
 document.getElementById('search').addEventListener('input', e => { searchText = e.target.value.trim(); renderList(); });
