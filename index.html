@@ -67,7 +67,15 @@
   .brand .sub { font-size: 13px; color: var(--muted); font-weight: 400; }
 
   #authArea { display: flex; align-items: center; gap: 10px; }
-  #authArea .who { font-size: 13px; color: var(--muted); }
+  .who-btn {
+    font-family: inherit; font-size: 13px; font-weight: 500;
+    padding: 7px 13px; border-radius: 10px;
+    border: 1px solid var(--line-strong); background: #fff; color: var(--ink);
+    cursor: pointer; transition: all .12s;
+  }
+  .who-btn:hover { border-color: var(--ink); }
+  /* 헤더의 ＋ 장소 추가 버튼을 닉네임 버튼과 크기 맞춤 */
+  header #addBtn { font-size: 13px; padding: 7px 13px; border-radius: 10px; border: 1px solid var(--accent); }
 
   .btn {
     font-size: 14px; font-weight: 500; border: none; border-radius: 10px;
@@ -107,9 +115,10 @@
     font-size: 13px; font-weight: 500; padding: 7px 13px;
     border: 1px solid var(--line-strong); border-radius: 10px;
     background: #fff; cursor: pointer; color: var(--ink); transition: all .12s;
-    margin-left: auto; font-family: inherit;
+    font-family: inherit; flex-shrink: 0;
   }
   .locate-btn:hover { border-color: var(--ink); }
+  .chip { flex-shrink: 0; }
 
   .cat-popover {
     position: absolute; z-index: 1800; background: #fff; border: 1px solid var(--line);
@@ -308,14 +317,16 @@
   }
   .modal.narrow { max-width: 400px; }
   .modal-head {
-    padding: 20px 24px 16px; display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 24px 16px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
   }
+  .modal-head .close-x { margin-top: -2px; }
   .modal-head h2 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -.02em; }
   .modal-head .sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
   .modal-body { padding: 4px 24px 8px; }
   .field { margin-bottom: 18px; }
   .field > label { display: block; font-weight: 500; margin-bottom: 8px; font-size: 13.5px; }
   .field .hint { font-weight: 400; color: var(--faint); }
+  .field .req { font-weight: 500; color: var(--accent); font-size: 12.5px; margin-left: 2px; }
   .field input[type=text], .field input[type=email], .field input[type=password], .field textarea {
     width: 100%; font-family: inherit; font-size: 14px;
     padding: 11px 13px; border: 1px solid var(--line-strong); border-radius: 10px; background: #fafafa;
@@ -367,9 +378,11 @@
 
   .modal-foot { padding: 16px 24px 22px; display: flex; gap: 10px; }
   .modal-foot.col { flex-direction: column; }
+  .modal-foot.end { justify-content: flex-end; }
   .modal-foot .btn { white-space: nowrap; }
   .modal-foot .btn-soft { flex-shrink: 0; }
   .modal-foot .btn-block { flex: 1; width: auto; }
+  .modal-foot.end .btn { font-size: 13px; padding: 8px 14px; }
   .close-x { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--faint); line-height: 1; }
   .close-x:hover { color: var(--ink); }
 
@@ -389,6 +402,12 @@
     .layout { display: block; }
     .sidebar { width: 100%; min-width: 0; height: 100%; border-right: none; }
     .map-col { display: none; }
+    .filters {
+      flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden;
+      -webkit-overflow-scrolling: touch; scrollbar-width: none;
+      margin: 12px -18px 0; padding: 0 18px;
+    }
+    .filters::-webkit-scrollbar { display: none; }
     body.mobile-detail .map-col,
     body.mobile-pick .map-col,
     body.mobile-locate .map-col { display: block; position: fixed; inset: 0; z-index: 1600; }
@@ -419,11 +438,11 @@
         <input type="text" id="search" placeholder="가게 이름이나 동네로 찾기" />
       </div>
       <div class="filters">
+        <button class="locate-btn" id="locateBtn">📍 내 주변</button>
         <button class="chip active" data-cat="all">전체</button>
         <button class="chip" id="catChip" data-cat="cat">카테고리 ▾</button>
         <button class="chip" id="favChip" data-cat="fav" style="display:none">👍 좋아요</button>
         <button class="chip" id="mineChip" data-cat="mine" style="display:none">📝 내가 등록</button>
-        <button class="locate-btn" id="locateBtn">📍 내 위치</button>
       </div>
     </div>
     <div class="list-head" id="listHead">등록된 장소</div>
@@ -474,15 +493,15 @@
     </div>
     <div class="modal-body">
       <div class="field" id="nickField" style="display:none">
-        <label>닉네임</label>
+        <label>닉네임 <span class="req">필수*</span></label>
         <input type="text" id="a-nick" placeholder="예) 영숙맘" />
       </div>
       <div class="field">
-        <label>이메일</label>
+        <label>이메일 <span class="req">필수*</span></label>
         <input type="email" id="a-email" placeholder="you@example.com" autocomplete="email" />
       </div>
       <div class="field">
-        <label>비밀번호 <span class="hint">· 6자 이상</span></label>
+        <label>비밀번호 <span class="req">필수*</span> <span class="hint">· 6자 이상</span></label>
         <input type="password" id="a-pass" placeholder="비밀번호" autocomplete="current-password" />
       </div>
       <div class="auth-msg" id="authMsg"></div>
@@ -490,6 +509,23 @@
     <div class="modal-foot col">
       <button class="btn btn-primary btn-block" id="authSubmit">로그인</button>
       <button class="btn link-btn btn-block" id="authToggle">계정이 없으신가요? 가입하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 로그아웃 확인 모달 -->
+<div class="overlay" id="logoutOverlay">
+  <div class="modal narrow">
+    <div class="modal-head">
+      <div>
+        <h2>로그아웃</h2>
+        <div class="sub">또 만나요. 정말 로그아웃 하시겠어요?</div>
+      </div>
+      <button class="close-x" id="logoutClose" aria-label="닫기">×</button>
+    </div>
+    <div class="modal-foot end">
+      <button class="btn btn-soft" id="logoutCancel">취소</button>
+      <button class="btn btn-primary" id="logoutConfirm">로그아웃</button>
     </div>
   </div>
 </div>
@@ -539,7 +575,7 @@
       <div class="or-divider">또는 아래에 직접 입력</div>
 
       <div class="field">
-        <label>가게 이름 <span class="hint">· 필수</span></label>
+        <label>가게 이름 <span class="req">필수*</span></label>
         <input type="text" id="f-name" placeholder="예) 햇살가득 식당" />
       </div>
 
@@ -574,7 +610,7 @@
       </div>
 
       <div class="field">
-        <label>위치 <span class="hint">· 필수</span></label>
+        <label>위치 <span class="req">필수*</span></label>
         <div class="loc-status" id="locStatus">위에서 가게를 검색해 고르면 위치가 자동으로 채워져요.</div>
         <button class="btn btn-soft btn-block" id="pickLocBtn" style="margin-top:10px;">📍 지도에서 직접 찍기</button>
       </div>
@@ -600,6 +636,17 @@ const TAGS = [
   "휠체어 접근 가능", "조용한 공간", "그림·사진 메뉴판", "직원이 친절해요",
   "넓고 단순한 동선", "자극이 적은 조명", "장애인 화장실", "주차 편리",
 ];
+const TAG_ICONS = {
+  "휠체어 접근 가능": "♿",
+  "조용한 공간": "🤫",
+  "그림·사진 메뉴판": "🖼️",
+  "직원이 친절해요": "🤗",
+  "넓고 단순한 동선": "🚶",
+  "자극이 적은 조명": "🌙",
+  "장애인 화장실": "🚻",
+  "주차 편리": "🚗",
+};
+const tagDisplay = t => (TAG_ICONS[t] ? TAG_ICONS[t] + ' ' : '') + t;
 
 let places = [];
 let reactions = [];
@@ -669,7 +716,7 @@ function renderMarkers(filtered) {
   markers = {};
   filtered.forEach(p => {
     const m = L.marker([p.lat, p.lng]).addTo(map);
-    const tagsHtml = (p.tags || []).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join(' ');
+    const tagsHtml = (p.tags || []).map(t => `<span class="tag">${escapeHtml(tagDisplay(t))}</span>`).join(' ');
     m.bindPopup(`
       <div class="popup-detail">
         <p class="name">${escapeHtml(p.name)}</p>
@@ -725,7 +772,7 @@ function renderList() {
   } else {
     listEl.innerHTML = filtered.map(p => {
       const info = reactionInfo(p.id);
-      const tagsHtml = (p.tags || []).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('');
+      const tagsHtml = (p.tags || []).map(t => `<span class="tag">${escapeHtml(tagDisplay(t))}</span>`).join('');
       const own = currentUser && p.created_by === currentUser.id;
       const allPhotos = p.photos || [];
       const shown = allPhotos.slice(0, 3);
@@ -802,7 +849,7 @@ function selectPlace(id, fromList) {
 
 /* ---------- 모바일 상세 화면 ---------- */
 function detailHtml(p) {
-  const tags = (p.tags || []).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join(' ');
+  const tags = (p.tags || []).map(t => `<span class="tag">${escapeHtml(tagDisplay(t))}</span>`).join(' ');
   return `<div class="dc-grip"></div>
     <div class="top">
       <span class="cat-dot ${p.category === 'cafe' ? 'cafe' : ''}">${p.category === 'cafe' ? '카페' : '식당'}</span>
@@ -842,7 +889,7 @@ function findMyLocation() {
   if (!navigator.geolocation) { alert('이 기기에선 위치 기능을 쓸 수 없어요.'); return; }
   if (isMobile()) {
     document.body.classList.add('mobile-locate');
-    document.getElementById('detailTitle').textContent = '내 위치';
+    document.getElementById('detailTitle').textContent = '내 주변';
     setTimeout(() => map.invalidateSize(), 60);
   }
   const btn = document.getElementById('locateBtn');
@@ -853,7 +900,7 @@ function findMyLocation() {
     if (myLocMarker) map.removeLayer(myLocMarker);
     myLocMarker = L.circleMarker([lat, lng], {
       radius: 9, color: '#E55A4C', weight: 3, fillColor: '#E55A4C', fillOpacity: .35
-    }).bindPopup('📍 내 위치').addTo(map);
+    }).bindPopup('📍 내 위치 근처').addTo(map);
     btn.textContent = orig; btn.disabled = false;
   }, err => {
     const msg = err.code === 1 ? '위치 권한이 거부됐어요. 브라우저 주소창 옆 자물쇠에서 권한을 허용해 주세요.'
@@ -1049,14 +1096,27 @@ function translateAuthError(m) {
   return m;
 }
 
+/* ---------- 로그아웃 확인 모달 ---------- */
+const logoutOverlay = document.getElementById('logoutOverlay');
+function closeLogout() { logoutOverlay.classList.remove('open'); }
+document.getElementById('logoutClose').addEventListener('click', closeLogout);
+document.getElementById('logoutCancel').addEventListener('click', closeLogout);
+logoutOverlay.addEventListener('click', e => { if (e.target === logoutOverlay) closeLogout(); });
+document.getElementById('logoutConfirm').addEventListener('click', async () => {
+  closeLogout();
+  await sb.auth.signOut();
+});
+
 function renderAuthBar() {
   const area = document.getElementById('authArea');
   if (currentUser) {
     const name = (currentUser.user_metadata && currentUser.user_metadata.nickname) || currentUser.email;
-    area.innerHTML = `<span class="who">${escapeHtml(name)}님</span><button class="btn btn-soft" id="logoutBtn">로그아웃</button>`;
-    document.getElementById('logoutBtn').addEventListener('click', async () => { await sb.auth.signOut(); });
+    area.innerHTML = `<button class="who-btn" id="whoBtn" title="누르면 로그아웃">${escapeHtml(name)}님</button>`;
+    document.getElementById('whoBtn').addEventListener('click', () => {
+      document.getElementById('logoutOverlay').classList.add('open');
+    });
   } else {
-    area.innerHTML = `<button class="btn btn-soft" id="loginBtn">로그인</button>`;
+    area.innerHTML = `<button class="who-btn" id="loginBtn">로그인</button>`;
     document.getElementById('loginBtn').addEventListener('click', openAuth);
   }
   document.getElementById('favChip').style.display = currentUser ? '' : 'none';
@@ -1073,7 +1133,7 @@ const overlay = document.getElementById('overlay');
 const mapHint = document.getElementById('mapHint');
 
 document.getElementById('tagPick').innerHTML = TAGS.map(t =>
-  `<label><input type="checkbox" value="${t}"> ${t}</label>`).join('');
+  `<label><input type="checkbox" value="${t}"> ${tagDisplay(t)}</label>`).join('');
 
 let editingId = null;
 
