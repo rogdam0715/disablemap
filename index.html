@@ -651,6 +651,7 @@ let currentUser = null;
 
 /* ---------- 지도 (카카오) ---------- */
 let map;                                              // kakao.maps.load() 안에서 초기화
+let pinImage;                                         // 같이 초기화되는 마커 이미지
 const Pt = (lat, lng) => new kakao.maps.LatLng(lat, lng);
 
 let markers = {};            // place id → kakao.maps.Marker
@@ -715,7 +716,7 @@ function renderMarkers(filtered) {
   Object.values(markers).forEach(m => m.setMap(null));
   markers = {}; infoWindows = {};
   filtered.forEach(p => {
-    const m = new kakao.maps.Marker({ position: Pt(p.lat, p.lng), map: map });
+    const m = new kakao.maps.Marker({ position: Pt(p.lat, p.lng), map: map, image: pinImage });
     const tagsHtml = (p.tags || []).map(t => `<span class="tag">${escapeHtml(tagDisplay(t))}</span>`).join(' ');
     const iw = new kakao.maps.InfoWindow({
       content: `<div class="popup-detail">
@@ -1477,6 +1478,11 @@ if (typeof kakao !== 'undefined' && kakao.maps && kakao.maps.load) {
       level: 7
     });
     map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.TOPLEFT);
+    pinImage = new kakao.maps.MarkerImage(
+      'pin.svg',
+      new kakao.maps.Size(36, 36),
+      { offset: new kakao.maps.Point(18, 34) }
+    );
     if (places.length) renderList();          // 데이터가 먼저 로드됐을 수 있으니 다시 렌더
   });
 }
