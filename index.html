@@ -9,9 +9,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
 
-<!-- 지도: Leaflet (OpenStreetMap, 무료/키 불필요) -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- 지도: 네이버 지도 Web Dynamic Map v3 -->
+<script src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=zgev3twumk"></script>
 
 <!-- 로그인 + 데이터베이스: Supabase -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -213,7 +212,7 @@
 
   /* 좋아요/싫어요 */
   .react-bar { display: flex; gap: 6px; margin-top: 12px; justify-content: flex-end; }
-  .leaflet-popup-content .react-bar { margin-right: -10px; }
+  .popup-detail .react-bar { margin-right: -2px; }
   .detail-card .react-bar { margin-right: -6px; }
   .react-btn {
     border: 1px solid var(--line-strong); background: #fff; border-radius: 8px;
@@ -400,10 +399,9 @@
   }
   .map-hint.show { display: block; }
 
-  .popup-detail { min-width: 200px; }
+  .popup-detail { min-width: 220px; max-width: 280px; padding: 14px 16px; }
   .popup-detail .name { font-size: 15px; font-weight: 700; margin: 0 0 4px; }
   .popup-detail .desc { font-size: 13px; color: var(--muted); margin: 7px 0; font-style: italic; }
-  .leaflet-popup-content { margin: 14px 16px; }
 
   @media (max-width: 760px) {
     .layout { display: block; }
@@ -658,17 +656,23 @@ let places = [];
 let reactions = [];
 let currentUser = null;
 
-/* ---------- 지도 ---------- */
-const map = L.map('map', { zoomControl: true }).setView([37.5665, 126.9780], 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19, attribution: '© OpenStreetMap'
-}).addTo(map);
-setTimeout(() => map.invalidateSize(), 200);
+/* ---------- 지도 (네이버) ---------- */
+const map = new naver.maps.Map('map', {
+  center: new naver.maps.LatLng(37.5665, 126.9780),
+  zoom: 13,
+  zoomControl: true,
+  zoomControlOptions: { position: naver.maps.Position.TOP_LEFT, style: naver.maps.ZoomControlStyle.SMALL }
+});
+const Pt = (lat, lng) => new naver.maps.LatLng(lat, lng);
 
-let markers = {};
+let markers = {};            // place id → naver.maps.Marker
+let infoWindows = {};        // place id → naver.maps.InfoWindow
+let currentIW = null;        // 현재 열려 있는 InfoWindow
 let pickingLocation = false;
 let pickedLatLng = null;
 let tempMarker = null;
+
+function closeInfoWindow() { if (currentIW) { currentIW.close(); currentIW = null; } }
 
 const catLabel = c => c === 'cafe' ? '☕ 카페' : '🍚 식당';
 
@@ -718,13 +722,14 @@ function navBtnHtml(p) {
 
 /* ---------- 지도 마커 ---------- */
 function renderMarkers(filtered) {
-  Object.values(markers).forEach(m => map.removeLayer(m));
-  markers = {};
+  closeInfoWindow();
+  Object.values(markers).forEach(m => m.setMap(null));
+  markers = {}; infoWindows = {};
   filtered.forEach(p => {
-    const m = L.marker([p.lat, p.lng]).addTo(map);
+    const m = new naver.maps.Marker({ position: Pt(p.lat, p.lng), map: map });
     const tagsHtml = (p.tags || []).map(t => `<span class="tag">${escapeHtml(tagDisplay(t))}</span>`).join(' ');
-    m.bindPopup(`
-      <div class="popup-detail">
+    const iw = new naver.maps.InfoWindow({
+      content: `<div class="popup-detail">
         <p class="name">${escapeHtml(p.name)}</p>
         <div style="font-size:13px;color:#8b909a">${catLabel(p.category)}${p.address ? ' · ' + escapeHtml(p.address) : ''}</div>
         ${p.note ? `<p class="desc">“${escapeHtml(p.note)}”</p>` : ''}
@@ -734,10 +739,19 @@ function renderMarkers(filtered) {
         ${reasonsHtml(p)}
         ${navBtnHtml(p)}
         ${p.created_by_nickname ? `<div class="byline" style="margin-top:10px;text-align:right">${escapeHtml(p.created_by_nickname)}님이 올림</div>` : ''}
-      </div>`);
-    m.on('click', () => selectPlace(p.id, false));
+      </div>`,
+      borderColor: '#d8d8d8', borderWidth: 1, anchorSize: new naver.maps.Size(12, 12), pixelOffset: new naver.maps.Point(0, -4)
+    });
+    naver.maps.Event.addListener(m, 'click', () => selectPlace(p.id, false));
     markers[p.id] = m;
+    infoWindows[p.id] = iw;
   });
+}
+
+function openMarkerPopup(id) {
+  closeInfoWindow();
+  const m = markers[id], iw = infoWindows[id];
+  if (m && iw) { iw.open(map, m); currentIW = iw; }
 }
 
 /* ---------- 목록/필터 ---------- */
@@ -852,8 +866,9 @@ function selectPlace(id, fromList) {
   if (fromList && isMobile()) {
     openDetail(p);
   } else if (fromList) {
-    map.setView([p.lat, p.lng], 16);
-    if (markers[id]) markers[id].openPopup();
+    map.setCenter(Pt(p.lat, p.lng));
+    map.setZoom(16);
+    openMarkerPopup(id);
   }
 }
 
@@ -879,8 +894,8 @@ function openDetail(p) {
   document.getElementById('detailTitle').textContent = p.name;
   document.getElementById('detailCard').innerHTML = detailHtml(p);
   document.body.classList.add('mobile-detail');
-  map.closePopup();
-  setTimeout(() => { map.invalidateSize(); map.setView([p.lat, p.lng], 16); }, 60);
+  closeInfoWindow();
+  setTimeout(() => { naver.maps.Event.trigger(map, 'resize'); map.setCenter(Pt(p.lat, p.lng)); map.setZoom(16); }, 60);
 }
 function closeDetail() { document.body.classList.remove('mobile-detail'); }
 function refreshOpenDetail() {
@@ -901,17 +916,18 @@ function findMyLocation() {
   if (isMobile()) {
     document.body.classList.add('mobile-locate');
     document.getElementById('detailTitle').textContent = '내 주변';
-    setTimeout(() => map.invalidateSize(), 60);
+    setTimeout(() => naver.maps.Event.trigger(map, 'resize'), 60);
   }
   const btn = document.getElementById('locateBtn');
   const orig = btn.textContent; btn.textContent = '위치 찾는 중…'; btn.disabled = true;
   navigator.geolocation.getCurrentPosition(pos => {
     const lat = pos.coords.latitude, lng = pos.coords.longitude;
-    map.setView([lat, lng], 15);
-    if (myLocMarker) map.removeLayer(myLocMarker);
-    myLocMarker = L.circleMarker([lat, lng], {
-      radius: 9, color: '#E55A4C', weight: 3, fillColor: '#E55A4C', fillOpacity: .35
-    }).bindPopup('📍 내 위치 근처').addTo(map);
+    map.setCenter(Pt(lat, lng)); map.setZoom(15);
+    if (myLocMarker) myLocMarker.setMap(null);
+    myLocMarker = new naver.maps.Marker({
+      position: Pt(lat, lng), map: map,
+      icon: { content: '<div style="width:18px;height:18px;border-radius:50%;background:rgba(229,90,76,0.35);border:3px solid #E55A4C;box-sizing:border-box;"></div>', anchor: new naver.maps.Point(12, 12) }
+    });
     btn.textContent = orig; btn.disabled = false;
   }, err => {
     const msg = err.code === 1 ? '위치 권한이 거부됐어요. 브라우저 주소창 옆 자물쇠에서 권한을 허용해 주세요.'
@@ -1001,7 +1017,7 @@ window.react = async (placeId, type) => {
     }
   } catch (e) { alert('잠시 후 다시 시도해 주세요.'); }
   await loadAll();
-  if (!isMobile() && markers[placeId]) markers[placeId].openPopup();
+  if (!isMobile() && markers[placeId]) openMarkerPopup(placeId);
 };
 
 let pendingDislikeId = null;
@@ -1012,7 +1028,7 @@ window.onDislike = (placeId) => {
   if (info.mine && info.mine.type === 'dislike') {       // 다시 누르면 취소
     sb.from('reactions').delete().eq('id', info.mine.id).then(async () => {
       await loadAll();
-      if (!isMobile() && markers[placeId]) markers[placeId].openPopup();
+      if (!isMobile() && markers[placeId]) openMarkerPopup(placeId);
     });
     return;
   }
@@ -1037,7 +1053,7 @@ document.getElementById('reasonSubmit').addEventListener('click', async () => {
   reasonOverlay.classList.remove('open');
   pendingDislikeId = null;
   await loadAll();
-  if (!isMobile() && markers[placeId]) markers[placeId].openPopup();
+  if (!isMobile() && markers[placeId]) openMarkerPopup(placeId);
 });
 
 /* ---------- 로그인 / 가입 ---------- */
@@ -1321,9 +1337,9 @@ function pickSearchResult(r) {
   pickedLatLng = { lat: parseFloat(r.lat), lng: parseFloat(r.lon) };
   searchResults.classList.remove('show');
   setLocStatus();
-  if (tempMarker) map.removeLayer(tempMarker);
-  tempMarker = L.marker([pickedLatLng.lat, pickedLatLng.lng]).addTo(map);
-  map.setView([pickedLatLng.lat, pickedLatLng.lng], 16);
+  if (tempMarker) tempMarker.setMap(null);
+  tempMarker = new naver.maps.Marker({ position: Pt(pickedLatLng.lat, pickedLatLng.lng), map: map });
+  map.setCenter(Pt(pickedLatLng.lat, pickedLatLng.lng)); map.setZoom(16);
 }
 document.getElementById('searchBtn').addEventListener('click', runSearch);
 searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); runSearch(); } });
@@ -1341,23 +1357,24 @@ document.getElementById('pickLocBtn').addEventListener('click', () => {
   pickingLocation = true;
   overlay.classList.remove('open');
   mapHint.classList.add('show');
-  map.getContainer().style.cursor = 'crosshair';
+  document.getElementById('map').style.cursor = 'crosshair';
   if (isMobile()) {
     document.body.classList.add('mobile-pick');
-    setTimeout(() => map.invalidateSize(), 60);
+    setTimeout(() => naver.maps.Event.trigger(map, 'resize'), 60);
   }
 });
 function cancelPicking() {
   pickingLocation = false;
   mapHint.classList.remove('show');
-  map.getContainer().style.cursor = '';
+  document.getElementById('map').style.cursor = '';
   document.body.classList.remove('mobile-pick');
 }
-map.on('click', e => {
+naver.maps.Event.addListener(map, 'click', e => {
   if (!pickingLocation) return;
-  pickedLatLng = e.latlng;
-  if (tempMarker) map.removeLayer(tempMarker);
-  tempMarker = L.marker(e.latlng, { opacity: .7 }).addTo(map);
+  const lat = e.coord.lat(), lng = e.coord.lng();
+  pickedLatLng = { lat, lng };
+  if (tempMarker) tempMarker.setMap(null);
+  tempMarker = new naver.maps.Marker({ position: e.coord, map: map, opacity: 0.7 });
   cancelPicking(); setLocStatus(); openModal();
 });
 
@@ -1376,7 +1393,7 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
     note: document.getElementById('f-note').value.trim(),
     tags, photos: formPhotos, lat: pickedLatLng.lat, lng: pickedLatLng.lng,
   };
-  if (tempMarker) { map.removeLayer(tempMarker); tempMarker = null; }
+  if (tempMarker) { tempMarker.setMap(null); tempMarker = null; }
   const saveBtn = document.getElementById('saveBtn'); saveBtn.disabled = true;
   try {
     if (editingId) {
