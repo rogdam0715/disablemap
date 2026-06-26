@@ -9,8 +9,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
 
-<!-- 지도: 네이버 지도 Web Dynamic Map v3 -->
-<script src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=zgev3twumk"></script>
+<!-- 지도: 카카오맵 SDK v2 -->
+<script src="//dapi.kakao.com/v2/maps/sdk.js?appkey=94ff6d2587c3aabe02fa182e51e04cd2"></script>
 
 <!-- 로그인 + 데이터베이스: Supabase -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -656,17 +656,12 @@ let places = [];
 let reactions = [];
 let currentUser = null;
 
-/* ---------- 지도 (네이버) ---------- */
-const map = new naver.maps.Map('map', {
-  center: new naver.maps.LatLng(37.5665, 126.9780),
-  zoom: 13,
-  zoomControl: true,
-  zoomControlOptions: { position: naver.maps.Position.TOP_LEFT, style: naver.maps.ZoomControlStyle.SMALL }
-});
-const Pt = (lat, lng) => new naver.maps.LatLng(lat, lng);
+/* ---------- 지도 (카카오) ---------- */
+let map;                                              // kakao.maps.load() 안에서 초기화
+const Pt = (lat, lng) => new kakao.maps.LatLng(lat, lng);
 
-let markers = {};            // place id → naver.maps.Marker
-let infoWindows = {};        // place id → naver.maps.InfoWindow
+let markers = {};            // place id → kakao.maps.Marker
+let infoWindows = {};        // place id → kakao.maps.InfoWindow
 let currentIW = null;        // 현재 열려 있는 InfoWindow
 let pickingLocation = false;
 let pickedLatLng = null;
@@ -726,9 +721,9 @@ function renderMarkers(filtered) {
   Object.values(markers).forEach(m => m.setMap(null));
   markers = {}; infoWindows = {};
   filtered.forEach(p => {
-    const m = new naver.maps.Marker({ position: Pt(p.lat, p.lng), map: map });
+    const m = new kakao.maps.Marker({ position: Pt(p.lat, p.lng), map: map });
     const tagsHtml = (p.tags || []).map(t => `<span class="tag">${escapeHtml(tagDisplay(t))}</span>`).join(' ');
-    const iw = new naver.maps.InfoWindow({
+    const iw = new kakao.maps.InfoWindow({
       content: `<div class="popup-detail">
         <p class="name">${escapeHtml(p.name)}</p>
         <div style="font-size:13px;color:#8b909a">${catLabel(p.category)}${p.address ? ' · ' + escapeHtml(p.address) : ''}</div>
@@ -740,9 +735,9 @@ function renderMarkers(filtered) {
         ${navBtnHtml(p)}
         ${p.created_by_nickname ? `<div class="byline" style="margin-top:10px;text-align:right">${escapeHtml(p.created_by_nickname)}님이 올림</div>` : ''}
       </div>`,
-      borderColor: '#d8d8d8', borderWidth: 1, anchorSize: new naver.maps.Size(12, 12), pixelOffset: new naver.maps.Point(0, -4)
+      removable: true
     });
-    naver.maps.Event.addListener(m, 'click', () => selectPlace(p.id, false));
+    kakao.maps.event.addListener(m, 'click', () => selectPlace(p.id, false));
     markers[p.id] = m;
     infoWindows[p.id] = iw;
   });
@@ -867,7 +862,7 @@ function selectPlace(id, fromList) {
     openDetail(p);
   } else if (fromList) {
     map.setCenter(Pt(p.lat, p.lng));
-    map.setZoom(16);
+    map.setLevel(3);
     openMarkerPopup(id);
   }
 }
@@ -895,7 +890,7 @@ function openDetail(p) {
   document.getElementById('detailCard').innerHTML = detailHtml(p);
   document.body.classList.add('mobile-detail');
   closeInfoWindow();
-  setTimeout(() => { naver.maps.Event.trigger(map, 'resize'); map.setCenter(Pt(p.lat, p.lng)); map.setZoom(16); }, 60);
+  setTimeout(() => { map.relayout(); map.setCenter(Pt(p.lat, p.lng)); map.setLevel(3); }, 60);
 }
 function closeDetail() { document.body.classList.remove('mobile-detail'); }
 function refreshOpenDetail() {
@@ -916,17 +911,18 @@ function findMyLocation() {
   if (isMobile()) {
     document.body.classList.add('mobile-locate');
     document.getElementById('detailTitle').textContent = '내 주변';
-    setTimeout(() => naver.maps.Event.trigger(map, 'resize'), 60);
+    setTimeout(() => map.relayout(), 60);
   }
   const btn = document.getElementById('locateBtn');
   const orig = btn.textContent; btn.textContent = '위치 찾는 중…'; btn.disabled = true;
   navigator.geolocation.getCurrentPosition(pos => {
     const lat = pos.coords.latitude, lng = pos.coords.longitude;
-    map.setCenter(Pt(lat, lng)); map.setZoom(15);
+    map.setCenter(Pt(lat, lng)); map.setLevel(4);
     if (myLocMarker) myLocMarker.setMap(null);
-    myLocMarker = new naver.maps.Marker({
+    myLocMarker = new kakao.maps.CustomOverlay({
       position: Pt(lat, lng), map: map,
-      icon: { content: '<div style="width:18px;height:18px;border-radius:50%;background:rgba(229,90,76,0.35);border:3px solid #E55A4C;box-sizing:border-box;"></div>', anchor: new naver.maps.Point(12, 12) }
+      content: '<div style="width:18px;height:18px;border-radius:50%;background:rgba(229,90,76,0.35);border:3px solid #E55A4C;box-sizing:border-box;"></div>',
+      yAnchor: 0.5, xAnchor: 0.5
     });
     btn.textContent = orig; btn.disabled = false;
   }, err => {
@@ -1338,8 +1334,8 @@ function pickSearchResult(r) {
   searchResults.classList.remove('show');
   setLocStatus();
   if (tempMarker) tempMarker.setMap(null);
-  tempMarker = new naver.maps.Marker({ position: Pt(pickedLatLng.lat, pickedLatLng.lng), map: map });
-  map.setCenter(Pt(pickedLatLng.lat, pickedLatLng.lng)); map.setZoom(16);
+  tempMarker = new kakao.maps.Marker({ position: Pt(pickedLatLng.lat, pickedLatLng.lng), map: map });
+  map.setCenter(Pt(pickedLatLng.lat, pickedLatLng.lng)); map.setLevel(3);
 }
 document.getElementById('searchBtn').addEventListener('click', runSearch);
 searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); runSearch(); } });
@@ -1360,7 +1356,7 @@ document.getElementById('pickLocBtn').addEventListener('click', () => {
   document.getElementById('map').style.cursor = 'crosshair';
   if (isMobile()) {
     document.body.classList.add('mobile-pick');
-    setTimeout(() => naver.maps.Event.trigger(map, 'resize'), 60);
+    setTimeout(() => map.relayout(), 60);
   }
 });
 function cancelPicking() {
@@ -1369,14 +1365,16 @@ function cancelPicking() {
   document.getElementById('map').style.cursor = '';
   document.body.classList.remove('mobile-pick');
 }
-naver.maps.Event.addListener(map, 'click', e => {
-  if (!pickingLocation) return;
-  const lat = e.coord.lat(), lng = e.coord.lng();
-  pickedLatLng = { lat, lng };
-  if (tempMarker) tempMarker.setMap(null);
-  tempMarker = new naver.maps.Marker({ position: e.coord, map: map, opacity: 0.7 });
-  cancelPicking(); setLocStatus(); openModal();
-});
+function setupMapClickListener() {
+  kakao.maps.event.addListener(map, 'click', e => {
+    if (!pickingLocation) return;
+    const lat = e.latLng.getLat(), lng = e.latLng.getLng();
+    pickedLatLng = { lat, lng };
+    if (tempMarker) tempMarker.setMap(null);
+    tempMarker = new kakao.maps.Marker({ position: e.latLng, map: map });
+    cancelPicking(); setLocStatus(); openModal();
+  });
+}
 
 /* ---------- 저장 (추가/수정) ---------- */
 document.getElementById('saveBtn').addEventListener('click', async () => {
@@ -1474,18 +1472,27 @@ document.addEventListener('click', e => {
   openLightbox(group, img.src);
 });
 
-/* ---------- 시작 + 로그인 상태 감지 ---------- */
-sb.auth.onAuthStateChange((_event, session) => {
-  currentUser = session ? session.user : null;
-  renderAuthBar();
-  loadAll();
+/* ---------- 시작: 카카오맵 SDK 준비 후 지도·로그인·데이터 init ---------- */
+kakao.maps.load(() => {
+  map = new kakao.maps.Map(document.getElementById('map'), {
+    center: new kakao.maps.LatLng(37.5665, 126.9780),
+    level: 7
+  });
+  map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.TOPLEFT);
+  setupMapClickListener();
+
+  sb.auth.onAuthStateChange((_event, session) => {
+    currentUser = session ? session.user : null;
+    renderAuthBar();
+    loadAll();
+  });
+  (async () => {
+    const { data } = await sb.auth.getSession();
+    currentUser = data.session ? data.session.user : null;
+    renderAuthBar();
+    await loadAll();
+  })();
 });
-(async () => {
-  const { data } = await sb.auth.getSession();
-  currentUser = data.session ? data.session.user : null;
-  renderAuthBar();
-  await loadAll();
-})();
 </script>
 </body>
 </html>
