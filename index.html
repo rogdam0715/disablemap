@@ -9,8 +9,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
 
-<!-- 지도: 카카오맵 SDK v2 -->
-<script src="//dapi.kakao.com/v2/maps/sdk.js?appkey=94ff6d2587c3aabe02fa182e51e04cd2"></script>
+<!-- 지도: 카카오맵 SDK v2 + 장소 검색(services) -->
+<script src="//dapi.kakao.com/v2/maps/sdk.js?appkey=94ff6d2587c3aabe02fa182e51e04cd2&libraries=services"></script>
 
 <!-- 로그인 + 데이터베이스: Supabase -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -712,11 +712,12 @@ function photosHtml(p, cls) {
     `<img src="${escapeHtml(u)}" class="photo" alt="가게 사진">`).join('')}</div>`;
 }
 function navBtnHtml(p) {
-  return `<div class="nav-bar"><button class="nav-btn" onclick="window.openDirections('${p.id}')">🧭 네이버 지도로 길찾기</button></div>`;
+  return `<div class="nav-bar"><button class="nav-btn" onclick="window.openDirections('${p.id}')">🧭 카카오맵으로 길찾기</button></div>`;
 }
 
 /* ---------- 지도 마커 ---------- */
 function renderMarkers(filtered) {
+  if (!map) return;                           // 카카오 SDK 아직 준비 안 됨 → 나중에 재호출
   closeInfoWindow();
   Object.values(markers).forEach(m => m.setMap(null));
   markers = {}; infoWindows = {};
@@ -908,6 +909,7 @@ document.getElementById('backBtn').addEventListener('click', () => {
 let myLocMarker = null;
 function findMyLocation() {
   if (!navigator.geolocation) { alert('이 기기에선 위치 기능을 쓸 수 없어요.'); return; }
+  if (!map) { alert('지도가 아직 준비 중이에요. 잠시 후 다시 시도해 주세요.'); return; }
   if (isMobile()) {
     document.body.classList.add('mobile-locate');
     document.getElementById('detailTitle').textContent = '내 주변';
@@ -936,19 +938,19 @@ function findMyLocation() {
 }
 document.getElementById('locateBtn').addEventListener('click', findMyLocation);
 
-/* ---------- 네이버 지도로 길찾기 ---------- */
+/* ---------- 카카오맵으로 길찾기 ---------- */
 window.openDirections = (placeId) => {
   const p = places.find(x => x.id === placeId);
   if (!p) return;
   const enc = encodeURIComponent(p.name);
   const isPhone = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   if (isPhone) {
-    // 휴대폰: 네이버 지도 앱 딥링크 (앱 없으면 스토어로 안내됨)
-    const appUrl = `nmap://route/public?dlat=${p.lat}&dlng=${p.lng}&dname=${enc}&appname=disablemap.app`;
+    // 휴대폰: 카카오맵 앱 딥링크 (앱 없으면 자동으로 스토어 안내)
+    const appUrl = `kakaomap://route?ep=${p.lat},${p.lng}&by=PUBLICTRANSIT`;
     window.location.href = appUrl;
   } else {
-    // PC: 네이버 지도 웹 길찾기 (출발지 비움, 도착지=장소)
-    const webUrl = `https://map.naver.com/p/directions/-/${p.lng},${p.lat},${enc},,PLACE_POI/-/transit?c=15.00,${p.lng},${p.lat},0,0,0,dh`;
+    // PC: 카카오맵 웹 길찾기 (도착지 미리 채움)
+    const webUrl = `https://map.kakao.com/link/to/${enc},${p.lat},${p.lng}`;
     window.open(webUrl, '_blank', 'noopener,noreferrer');
   }
 };
@@ -1292,13 +1294,23 @@ function setLocStatus() {
 const searchInput = document.getElementById('f-search');
 const searchResults = document.getElementById('searchResults');
 
-async function geocode(q) {
-  const url = 'https://nominatim.openstreetmap.org/search'
-    + '?format=jsonv2&addressdetails=1&limit=6&countrycodes=kr&accept-language=ko'
-    + '&q=' + encodeURIComponent(q);
-  const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-  if (!res.ok) throw new Error('검색 실패');
-  return res.json();
+function geocode(q) {
+  return new Promise((resolve, reject) => {
+    if (!window.kakao || !kakao.maps || !kakao.maps.services) {
+      reject(new Error('카카오 검색이 준비되지 않았어요'));
+      return;
+    }
+    const ps = new kakao.maps.services.Places();
+    ps.keywordSearch(q, (data, status) => {
+      if (status === kakao.maps.services.Status.OK) {
+        resolve(data);
+      } else if (status === kakao.maps.services.Status.ZERO_RESULT) {
+        resolve([]);
+      } else {
+        reject(new Error('검색 실패: ' + status));
+      }
+    }, { size: 10 });
+  });
 }
 function showSearchMsg(msg) {
   searchResults.innerHTML = `<div class="sr-msg">${escapeHtml(msg)}</div>`;
@@ -1312,10 +1324,11 @@ async function runSearch() {
     const results = await geocode(q);
     if (!results.length) { showSearchMsg('검색 결과가 없어요. 다른 이름이나 주소로 찾아보세요.'); return; }
     searchResults.innerHTML = results.map((r, i) => {
-      const main = r.name && r.name.trim() ? r.name : r.display_name.split(',')[0];
+      const name = r.place_name || r.address_name || '';
+      const addr = r.road_address_name || r.address_name || '';
       return `<div class="sr-item" data-i="${i}">
-        <div class="sr-name">${escapeHtml(main)}</div>
-        <div class="sr-addr">${escapeHtml(r.display_name)}</div>
+        <div class="sr-name">${escapeHtml(name)}</div>
+        <div class="sr-addr">${escapeHtml(addr)}</div>
       </div>`;
     }).join('');
     searchResults.classList.add('show');
@@ -1327,15 +1340,18 @@ async function runSearch() {
   }
 }
 function pickSearchResult(r) {
-  const main = r.name && r.name.trim() ? r.name : r.display_name.split(',')[0];
-  if (!document.getElementById('f-name').value.trim()) document.getElementById('f-name').value = main;
-  document.getElementById('f-addr').value = r.display_name;
-  pickedLatLng = { lat: parseFloat(r.lat), lng: parseFloat(r.lon) };
+  const name = r.place_name || r.address_name || '';
+  const addr = r.road_address_name || r.address_name || '';
+  if (!document.getElementById('f-name').value.trim()) document.getElementById('f-name').value = name;
+  document.getElementById('f-addr').value = addr;
+  pickedLatLng = { lat: parseFloat(r.y), lng: parseFloat(r.x) };
   searchResults.classList.remove('show');
   setLocStatus();
-  if (tempMarker) tempMarker.setMap(null);
-  tempMarker = new kakao.maps.Marker({ position: Pt(pickedLatLng.lat, pickedLatLng.lng), map: map });
-  map.setCenter(Pt(pickedLatLng.lat, pickedLatLng.lng)); map.setLevel(3);
+  if (map) {
+    if (tempMarker) tempMarker.setMap(null);
+    tempMarker = new kakao.maps.Marker({ position: Pt(pickedLatLng.lat, pickedLatLng.lng), map: map });
+    map.setCenter(Pt(pickedLatLng.lat, pickedLatLng.lng)); map.setLevel(3);
+  }
 }
 document.getElementById('searchBtn').addEventListener('click', runSearch);
 searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); runSearch(); } });
@@ -1414,10 +1430,15 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-/* 목록용 주소 요약: "시 구 동"까지만. 직접 입력한 짧은 주소는 그대로. */
+/* 목록용 주소 요약: "시 구 동"까지만. */
 function shortAddress(addr) {
   if (!addr) return '';
-  if (!addr.includes(',')) return addr;
+  if (!addr.includes(',')) {
+    // 카카오 형식("서울 중구 명동길 14") — 끝의 번지 숫자를 떨어내기
+    const parts = addr.trim().split(/\s+/);
+    while (parts.length > 0 && /^\d+(-\d+)?$/.test(parts[parts.length - 1])) parts.pop();
+    return parts.join(' ');
+  }
   const tokens = addr.split(',').map(s => s.trim()).filter(Boolean);
   // 우선순위: 광역시/특별시 → 일반 시 → 도 (4단 주소에선 구가 속한 '시'가 더 자연스러움)
   const sidoRaw = tokens.find(t => /(특별시|광역시|특별자치시)$/.test(t))
@@ -1472,27 +1493,31 @@ document.addEventListener('click', e => {
   openLightbox(group, img.src);
 });
 
-/* ---------- 시작: 카카오맵 SDK 준비 후 지도·로그인·데이터 init ---------- */
-kakao.maps.load(() => {
-  map = new kakao.maps.Map(document.getElementById('map'), {
-    center: new kakao.maps.LatLng(37.5665, 126.9780),
-    level: 7
-  });
-  map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.TOPLEFT);
-  setupMapClickListener();
-
-  sb.auth.onAuthStateChange((_event, session) => {
-    currentUser = session ? session.user : null;
-    renderAuthBar();
-    loadAll();
-  });
-  (async () => {
-    const { data } = await sb.auth.getSession();
-    currentUser = data.session ? data.session.user : null;
-    renderAuthBar();
-    await loadAll();
-  })();
+/* ---------- 시작: 인증·데이터는 지도와 무관하게 즉시 시작 ---------- */
+sb.auth.onAuthStateChange((_event, session) => {
+  currentUser = session ? session.user : null;
+  renderAuthBar();
+  loadAll();
 });
+(async () => {
+  const { data } = await sb.auth.getSession();
+  currentUser = data.session ? data.session.user : null;
+  renderAuthBar();
+  await loadAll();
+})();
+
+/* 카카오 SDK가 준비되면 지도 생성 + 마커 다시 그리기 */
+if (typeof kakao !== 'undefined' && kakao.maps && kakao.maps.load) {
+  kakao.maps.load(() => {
+    map = new kakao.maps.Map(document.getElementById('map'), {
+      center: new kakao.maps.LatLng(37.5665, 126.9780),
+      level: 7
+    });
+    map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.TOPLEFT);
+    setupMapClickListener();
+    if (places.length) renderList();          // 데이터가 먼저 로드됐을 수 있으니 다시 렌더
+  });
+}
 </script>
 </body>
 </html>
