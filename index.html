@@ -286,6 +286,8 @@
   /* 지도 — 부모를 꽉 채우도록 absolute 처리 (높이 0 버그 방지) */
   .map-col { flex: 1; position: relative; }
   #map { position: absolute; inset: 0; background: #eaeaea; }
+  /* 지도 위 핀에 그림자 (이미지 알파 채널 따라 자연스럽게) */
+  #map img[src*="pin.png"] { filter: drop-shadow(0 3px 5px rgba(0,0,0,0.35)); }
 
   /* 모바일 상세 화면 (PC에서는 숨김) */
   .mobile-detail-bar {
