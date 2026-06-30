@@ -22,9 +22,9 @@
     --ink: #111418;
     --muted: #6b7078;
     --faint: #b4b8c0;
-    --accent: #E55A4C;
-    --accent-dark: #B83D2F;
-    --accent-soft: #FCEDEA;
+    --accent: #0F8A72;
+    --accent-dark: #0B6B58;
+    --accent-soft: #E1F1ED;
     --danger: #c0392b;
     --danger-soft: #fbecea;
     --line: #ececec;
@@ -58,8 +58,8 @@
     position: relative;
     z-index: 1200;
   }
-  .brand { display: flex; align-items: baseline; gap: 10px; flex: 1; }
-  .brand .mark { font-size: 20px; }
+  .brand { display: flex; align-items: center; gap: 10px; flex: 1; }
+  .brand .mark { width: 28px; height: 28px; display: block; object-fit: contain; }
   .brand h1 {
     font-size: 18px; font-weight: 700; margin: 0; letter-spacing: -.02em;
   }
@@ -382,7 +382,7 @@
     background: #fafafa; border: 1px dashed var(--line-strong); border-radius: 10px;
     padding: 11px 13px; font-size: 13px; color: var(--muted);
   }
-  .loc-status.set { background: var(--accent-soft); border-style: solid; border-color: #f3d7d2; color: var(--accent-dark); font-weight: 500; }
+  .loc-status.set { background: var(--accent-soft); border-style: solid; border-color: #b9dccf; color: var(--accent-dark); font-weight: 500; }
 
   .auth-msg { font-size: 13px; min-height: 18px; color: var(--danger); margin-top: -6px; }
   .link-btn { background: none !important; color: var(--accent); box-shadow: none; }
@@ -424,7 +424,7 @@
 
 <header>
   <div class="brand">
-    <span class="mark">🦒</span>
+    <img class="mark" src="logo.png" alt="기린마을 로고">
     <h1>기린마을</h1>
   </div>
   <div id="authArea"></div>
@@ -918,7 +918,7 @@ function findMyLocation() {
     if (myLocMarker) myLocMarker.setMap(null);
     myLocMarker = new kakao.maps.CustomOverlay({
       position: Pt(lat, lng), map: map,
-      content: '<div style="width:18px;height:18px;border-radius:50%;background:rgba(229,90,76,0.35);border:3px solid #E55A4C;box-sizing:border-box;"></div>',
+      content: '<div style="width:18px;height:18px;border-radius:50%;background:rgba(15,138,114,0.35);border:3px solid #0F8A72;box-sizing:border-box;"></div>',
       yAnchor: 0.5, xAnchor: 0.5
     });
     btn.textContent = orig; btn.disabled = false;
@@ -1479,9 +1479,9 @@ if (typeof kakao !== 'undefined' && kakao.maps && kakao.maps.load) {
     });
     map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.TOPLEFT);
     pinImage = new kakao.maps.MarkerImage(
-      'pin.svg',
+      'pin.png',
       new kakao.maps.Size(36, 36),
-      { offset: new kakao.maps.Point(18, 34) }
+      { offset: new kakao.maps.Point(18, 36) }   // 이미지 바닥 중앙이 좌표점
     );
     if (places.length) renderList();          // 데이터가 먼저 로드됐을 수 있으니 다시 렌더
   });
