@@ -941,15 +941,28 @@ window.openDirections = (placeId) => {
   if (!p) return;
   const enc = encodeURIComponent(p.name);
   const isPhone = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  if (isPhone) {
-    // 휴대폰: 카카오맵 앱 딥링크 (앱 없으면 자동으로 스토어 안내)
-    const appUrl = `kakaomap://route?ep=${p.lat},${p.lng}&by=PUBLICTRANSIT`;
-    window.location.href = appUrl;
-  } else {
-    // PC: 카카오맵 웹 길찾기 (도착지 미리 채움)
-    const webUrl = `https://map.kakao.com/link/to/${enc},${p.lat},${p.lng}`;
-    window.open(webUrl, '_blank', 'noopener,noreferrer');
+  const webUrl = `https://map.kakao.com/link/to/${enc},${p.lat},${p.lng}`;
+
+  // 모바일에서 브라우저가 현재 위치를 아는 상태(권한 허용됨)라면
+  // 앱 스킴으로 출발지·도착지 미리 채워서 바로 길찾기 화면으로.
+  // 실패 시(권한 거부·앱 미설치 등)엔 웹 URL로 폴백 → 카카오맵 앱 유니버설 링크 또는 모바일 웹.
+  if (isPhone && navigator.geolocation) {
+    let fallbackTimer = setTimeout(() => { window.location.href = webUrl; }, 1500);
+    const onHide = () => { clearTimeout(fallbackTimer); document.removeEventListener('visibilitychange', onHide); };
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        document.addEventListener('visibilitychange', onHide);
+        const sp = `${pos.coords.latitude},${pos.coords.longitude}`;
+        window.location.href = `kakaomap://route?sp=${sp}&ep=${p.lat},${p.lng}&by=PUBLICTRANSIT`;
+      },
+      () => { clearTimeout(fallbackTimer); window.location.href = webUrl; },
+      { timeout: 3000, maximumAge: 60000 }
+    );
+    return;
   }
+
+  if (isPhone) window.location.href = webUrl;
+  else window.open(webUrl, '_blank', 'noopener,noreferrer');
 };
 
 document.getElementById('search').addEventListener('input', e => { searchText = e.target.value.trim(); renderList(); });
