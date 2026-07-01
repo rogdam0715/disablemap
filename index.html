@@ -1495,8 +1495,8 @@ if (typeof kakao !== 'undefined' && kakao.maps && kakao.maps.load) {
     map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.TOPLEFT);
     pinImage = new kakao.maps.MarkerImage(
       'pin.png',
-      new kakao.maps.Size(44, 44),
-      { offset: new kakao.maps.Point(22, 44) }   // 이미지 바닥 중앙이 좌표점
+      new kakao.maps.Size(44, 48),                  // 원본 64×70 비율에 맞춰
+      { offset: new kakao.maps.Point(22, 48) }      // 이미지 바닥 중앙이 좌표점
     );
     if (places.length) renderList();          // 데이터가 먼저 로드됐을 수 있으니 다시 렌더
   });
