@@ -1,0 +1,26 @@
+{
+  "name": "기린마을",
+  "short_name": "기린마을",
+  "description": "발달장애인 친화 식당·카페 가이드",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#0F8A72",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "logo-512.png",
+      "sizes": "540x540",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

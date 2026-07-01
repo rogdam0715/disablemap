@@ -10,6 +10,13 @@
 <link rel="icon" type="image/png" href="logo.png" />
 <link rel="apple-touch-icon" href="logo.png" />
 
+<!-- PWA (홈 화면에 앱처럼 추가 가능) -->
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#0F8A72" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="기린마을" />
+
 <!-- 링크 공유 미리보기 (Open Graph) -->
 <meta property="og:type" content="website" />
 <meta property="og:title" content="기린마을" />
@@ -717,6 +724,13 @@
    기린마을 — 발달장애인 친화 식당·카페 가이드
    로그인 + 데이터: Supabase. 좋아요=즐겨찾기, 싫어요엔 이유.
    ========================================================= */
+
+/* PWA: 서비스 워커 등록 (홈 화면 앱 추가) */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
 
 const SUPABASE_URL = 'https://eqpmxsikzluywowsxcut.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxcG14c2lremx1eXdvd3N4Y3V0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxNzAxNzcsImV4cCI6MjA5Nzc0NjE3N30.bAnH1XFEQR3U_6vD3exsTiJ6R4qOmwh1EPTGqWn8Ypw';
