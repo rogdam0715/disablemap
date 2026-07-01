@@ -120,11 +120,14 @@
 
   .app-footer {
     padding: 14px 18px 18px; border-top: 1px solid var(--line);
-    display: flex; justify-content: center; flex-wrap: wrap; gap: 12px;
-    font-size: 11.5px;
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+    gap: 12px; font-size: 11.5px;
   }
   .app-footer a { color: var(--faint); text-decoration: none; }
   .app-footer a:hover { color: var(--ink); text-decoration: underline; }
+  .app-footer a.social { display: inline-flex; align-items: center; opacity: .8; transition: opacity .12s; }
+  .app-footer a.social:hover { opacity: 1; text-decoration: none; }
+  .app-footer a.social img { width: 18px; height: 18px; object-fit: contain; display: block; }
   .info-body { padding: 4px 24px 22px; font-size: 13.5px; color: var(--ink); line-height: 1.65; max-height: 60vh; overflow-y: auto; }
   .info-body h3 { font-size: 14px; font-weight: 700; margin: 14px 0 6px; }
   .info-body p { margin: 6px 0; }
@@ -523,7 +526,9 @@
     <div class="app-footer">
       <a href="#" id="linkPrivacy">개인정보 처리방침</a>
       <a href="#" id="linkTerms">이용약관</a>
-      <a href="mailto:nd00133@gmail.com?subject=기린마을%20문의">문의</a>
+      <a href="mailto:kirinmaeul@naver.com?subject=기린마을%20문의">문의</a>
+      <a class="social" href="https://www.instagram.com/kirinmaeul" target="_blank" rel="noopener" aria-label="인스타그램"><img src="insta.png" alt="인스타그램"></a>
+      <a class="social" href="https://blog.naver.com/kirinmaeul" target="_blank" rel="noopener" aria-label="블로그"><img src="blog.png" alt="블로그"></a>
     </div>
   </aside>
 
@@ -1245,7 +1250,7 @@ const PRIVACY_HTML = `
 <h3>5. 이용자의 권리</h3>
 <p>언제든 본인의 계정, 등록한 장소·사진·반응을 수정·삭제할 수 있습니다. 삭제된 정보는 복구되지 않습니다.</p>
 <h3>6. 문의</h3>
-<p><a href="mailto:nd00133@gmail.com">nd00133@gmail.com</a>으로 문의해 주세요.</p>
+<p><a href="mailto:kirinmaeul@naver.com">kirinmaeul@naver.com</a>으로 문의해 주세요.</p>
 <p class="updated">최종 개정일: 2026-07-01</p>
 `;
 
@@ -1307,6 +1312,7 @@ function renderAuthBar() {
   document.getElementById('favChip').style.display = currentUser ? '' : 'none';
   document.getElementById('mineChip').style.display = currentUser ? '' : 'none';
   document.body.classList.toggle('logged-out', !currentUser);
+  document.getElementById('addBtn').style.display = currentUser ? '' : 'none';
   if (!currentUser && (activeCat === 'fav' || activeCat === 'mine')) {  // 로그아웃하면 전체로 되돌림
     activeCat = 'all';
     document.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.dataset.cat === 'all'));
