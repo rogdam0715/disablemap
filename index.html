@@ -472,10 +472,12 @@
 
   .popup-detail {
     position: relative;
-    min-width: 220px; max-width: 280px; padding: 14px 16px 14px;
+    width: 260px; box-sizing: border-box; padding: 14px 16px 14px;
     background: #fff; border-radius: 12px; box-shadow: 0 6px 20px rgba(28,32,40,.18);
     border: 1px solid rgba(0,0,0,.06);
+    white-space: normal; word-break: break-word; overflow-wrap: anywhere;
   }
+  .popup-detail > * { max-width: 100%; }
   .popup-detail::after {
     content: ""; position: absolute; left: 50%; bottom: -8px; transform: translateX(-50%);
     width: 14px; height: 14px; background: #fff;
