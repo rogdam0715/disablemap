@@ -202,8 +202,8 @@
   .cat-popover button:hover { background: #f4f4f4; }
   .cat-popover button.active { background: var(--accent-soft); color: var(--accent-dark); font-weight: 500; }
 
-  /* 길찾기·바로가기 버튼 */
-  .nav-bar { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+  /* 카카오맵 링크 버튼 */
+  .nav-bar { margin-top: 12px; }
   .nav-btn {
     width: 100%; border: 1px solid var(--ink); background: var(--ink); color: #fff;
     border-radius: 10px; padding: 9px 12px; font-size: 13px; font-weight: 500;
@@ -211,10 +211,6 @@
     font-family: inherit; text-decoration: none;
   }
   .nav-btn:hover { background: #2a2f37; }
-  .nav-btn.soft {
-    background: #fff; color: var(--ink); border-color: var(--line-strong);
-  }
-  .nav-btn.soft:hover { background: #f6f6f7; }
   .popup-detail .nav-btn { padding: 7px 10px; font-size: 12.5px; border-radius: 8px; }
   .chip {
     font-size: 13px; font-weight: 500; padding: 7px 13px;
@@ -826,8 +822,7 @@ function kakaoMapUrl(p) {
 }
 function navBtnHtml(p) {
   return `<div class="nav-bar">
-    <button class="nav-btn" onclick="window.openDirections('${p.id}')">🧭 카카오맵으로 길찾기</button>
-    <a class="nav-btn soft" href="${kakaoMapUrl(p)}" target="_blank" rel="noopener noreferrer">🗺 카카오맵에서 자세히 보기</a>
+    <a class="nav-btn" href="${kakaoMapUrl(p)}" target="_blank" rel="noopener noreferrer">🗺 카카오맵에서 자세히 보기</a>
   </div>`;
 }
 
@@ -1054,36 +1049,6 @@ function findMyLocation() {
   }, { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 });
 }
 document.getElementById('locateBtn').addEventListener('click', findMyLocation);
-
-/* ---------- 카카오맵으로 길찾기 ---------- */
-window.openDirections = (placeId) => {
-  const p = places.find(x => x.id === placeId);
-  if (!p) return;
-  const enc = encodeURIComponent(p.name);
-  const isPhone = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  const webUrl = `https://map.kakao.com/link/to/${enc},${p.lat},${p.lng}`;
-
-  // 모바일에서 브라우저가 현재 위치를 아는 상태(권한 허용됨)라면
-  // 앱 스킴으로 출발지·도착지 미리 채워서 바로 길찾기 화면으로.
-  // 실패 시(권한 거부·앱 미설치 등)엔 웹 URL로 폴백 → 카카오맵 앱 유니버설 링크 또는 모바일 웹.
-  if (isPhone && navigator.geolocation) {
-    let fallbackTimer = setTimeout(() => { window.location.href = webUrl; }, 1500);
-    const onHide = () => { clearTimeout(fallbackTimer); document.removeEventListener('visibilitychange', onHide); };
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        document.addEventListener('visibilitychange', onHide);
-        const sp = `${pos.coords.latitude},${pos.coords.longitude}`;
-        window.location.href = `kakaomap://route?sp=${sp}&ep=${p.lat},${p.lng}&by=PUBLICTRANSIT`;
-      },
-      () => { clearTimeout(fallbackTimer); window.location.href = webUrl; },
-      { timeout: 3000, maximumAge: 60000 }
-    );
-    return;
-  }
-
-  if (isPhone) window.location.href = webUrl;
-  else window.open(webUrl, '_blank', 'noopener,noreferrer');
-};
 
 document.getElementById('search').addEventListener('input', e => { searchText = e.target.value.trim(); renderList(); });
 
