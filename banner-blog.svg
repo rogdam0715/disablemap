@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 150">
+  <rect width="600" height="150" fill="#0F8A72"/>
+  <text x="300" y="65" font-family="Noto Sans KR, sans-serif" font-size="32" font-weight="700" fill="white" text-anchor="middle">기린마을 블로그</text>
+  <text x="300" y="105" font-family="Noto Sans KR, sans-serif" font-size="18" font-weight="400" fill="white" text-anchor="middle" opacity="0.9">운영 이야기·업데이트</text>
+</svg>
