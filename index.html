@@ -673,7 +673,7 @@
         <div class="search-results" id="searchResults"></div>
       </div>
 
-      <div class="or-divider">또는 아래에 직접 입력</div>
+      <div class="or-divider">장소 정보</div>
 
       <div class="field">
         <label>장소 이름 <span class="hint">· 검색으로 자동 입력</span> <span class="req">필수*</span></label>
@@ -1479,6 +1479,8 @@ function geocode(q) {
       return;
     }
     const ps = new kakao.maps.services.Places();
+    const opts = { size: 10 };
+    if (map) opts.location = map.getCenter();  // 지도 중심 근처 우선
     ps.keywordSearch(q, (data, status) => {
       if (status === kakao.maps.services.Status.OK) {
         resolve(data);
@@ -1487,19 +1489,23 @@ function geocode(q) {
       } else {
         reject(new Error('검색 실패: ' + status));
       }
-    }, { size: 10 });
+    }, opts);
   });
 }
 function showSearchMsg(msg) {
   searchResults.innerHTML = `<div class="sr-msg">${escapeHtml(msg)}</div>`;
   searchResults.classList.add('show');
 }
+let searchToken = 0;
+let searchDebounceId = null;
 async function runSearch() {
+  const myToken = ++searchToken;
   const q = searchInput.value.trim();
   if (!q) { searchResults.classList.remove('show'); return; }
   showSearchMsg('검색 중…');
   try {
     const results = await geocode(q);
+    if (myToken !== searchToken) return;  // 더 최근 요청이 있음 → 무시
     if (!results.length) { showSearchMsg('검색 결과가 없어요. 다른 이름이나 주소로 찾아보세요.'); return; }
     searchResults.innerHTML = results.map((r, i) => {
       const name = r.place_name || r.address_name || '';
@@ -1514,8 +1520,15 @@ async function runSearch() {
       el.addEventListener('click', () => pickSearchResult(results[Number(el.dataset.i)]));
     });
   } catch (err) {
+    if (myToken !== searchToken) return;
     showSearchMsg('검색 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요.');
   }
+}
+function scheduleSearch() {
+  if (searchDebounceId) clearTimeout(searchDebounceId);
+  const q = searchInput.value.trim();
+  if (q.length < 2) { searchResults.classList.remove('show'); return; }
+  searchDebounceId = setTimeout(runSearch, 300);
 }
 function pickSearchResult(r) {
   const name = r.place_name || r.address_name || '';
@@ -1530,8 +1543,18 @@ function pickSearchResult(r) {
     map.setCenter(Pt(pickedLatLng.lat, pickedLatLng.lng)); map.setLevel(3);
   }
 }
-document.getElementById('searchBtn').addEventListener('click', runSearch);
-searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); runSearch(); } });
+document.getElementById('searchBtn').addEventListener('click', () => {
+  if (searchDebounceId) clearTimeout(searchDebounceId);
+  runSearch();
+});
+searchInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (searchDebounceId) clearTimeout(searchDebounceId);
+    runSearch();
+  }
+});
+searchInput.addEventListener('input', scheduleSearch);
 
 /* ---------- 추가 버튼 / 모달 닫기 ---------- */
 document.getElementById('addBtn').addEventListener('click', () => {
