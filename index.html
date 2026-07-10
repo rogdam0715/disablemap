@@ -1715,31 +1715,24 @@ document.addEventListener('click', e => {
   const realCount = originals.length;
 
   let timer = null;
-  let animating = false;
   const advance = () => {
-    if (animating) return;
     const items = banner.querySelectorAll('.banner-item');
     const step = items[1].offsetLeft - items[0].offsetLeft;
     if (!step) return;
     const currentIdx = Math.round(banner.scrollLeft / step);
     const nextIdx = currentIdx + 1;   // 항상 오른쪽으로 (mod 없음)
-    animating = true;
     banner.scrollTo({ left: nextIdx * step, behavior: 'smooth' });
-    // 클론 위치에 도달했으면 애니메이션 끝난 뒤 조용히 진짜 첫 카드로 리셋
+    // 클론 위치 도달 → 애니메이션 끝난 뒤 조용히 진짜 첫 카드로 리셋
     if (nextIdx >= realCount) {
       setTimeout(() => {
         banner.scrollTo({ left: 0, behavior: 'auto' });
-        animating = false;
-      }, 650);
-    } else {
-      setTimeout(() => { animating = false; }, 650);
+      }, 900);
     }
   };
   const restart = () => { clearInterval(timer); timer = setInterval(advance, 5000); };
   const pause = () => clearInterval(timer);
   restart();
-  banner.addEventListener('mouseenter', pause);
-  banner.addEventListener('mouseleave', restart);
+  // 터치 중일 때만 잠시 멈춤 (호버 시엔 계속 진행)
   banner.addEventListener('touchstart', pause, { passive: true });
   banner.addEventListener('touchend', restart);
 })();
