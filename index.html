@@ -1700,19 +1700,40 @@ document.addEventListener('click', e => {
   openLightbox(group, img.src);
 });
 
-/* ---------- 상단 배너 자동 슬라이드 (5초 간격, 호버·터치 시 일시정지) ---------- */
+/* ---------- 상단 배너 무한 자동 슬라이드 (5초, 호버·터치 시 일시정지) ---------- */
 (() => {
   const banner = document.getElementById('topBanner');
   if (!banner) return;
+  const originals = [...banner.querySelectorAll('.banner-item')];
+  if (originals.length < 2) return;
+  // 첫 카드를 맨 끝에 복제해 → 마지막에서 오른쪽으로 한 번 더 나아가면 첫 카드가 나오고
+  // 애니메이션이 끝나면 조용히 진짜 첫 카드 위치로 리셋 (사용자는 눈치 못 챔)
+  const clone = originals[0].cloneNode(true);
+  clone.setAttribute('data-clone', 'true');
+  clone.setAttribute('aria-hidden', 'true');
+  banner.appendChild(clone);
+  const realCount = originals.length;
+
   let timer = null;
+  let animating = false;
   const advance = () => {
+    if (animating) return;
     const items = banner.querySelectorAll('.banner-item');
-    if (items.length < 2) return;
     const step = items[1].offsetLeft - items[0].offsetLeft;
     if (!step) return;
     const currentIdx = Math.round(banner.scrollLeft / step);
-    const nextIdx = (currentIdx + 1) % items.length;
+    const nextIdx = currentIdx + 1;   // 항상 오른쪽으로 (mod 없음)
+    animating = true;
     banner.scrollTo({ left: nextIdx * step, behavior: 'smooth' });
+    // 클론 위치에 도달했으면 애니메이션 끝난 뒤 조용히 진짜 첫 카드로 리셋
+    if (nextIdx >= realCount) {
+      setTimeout(() => {
+        banner.scrollTo({ left: 0, behavior: 'auto' });
+        animating = false;
+      }, 650);
+    } else {
+      setTimeout(() => { animating = false; }, 650);
+    }
   };
   const restart = () => { clearInterval(timer); timer = setInterval(advance, 5000); };
   const pause = () => clearInterval(timer);
