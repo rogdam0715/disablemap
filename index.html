@@ -202,15 +202,19 @@
   .cat-popover button:hover { background: #f4f4f4; }
   .cat-popover button.active { background: var(--accent-soft); color: var(--accent-dark); font-weight: 500; }
 
-  /* 길찾기 버튼 */
-  .nav-bar { margin-top: 12px; }
+  /* 길찾기·바로가기 버튼 */
+  .nav-bar { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
   .nav-btn {
     width: 100%; border: 1px solid var(--ink); background: var(--ink); color: #fff;
     border-radius: 10px; padding: 9px 12px; font-size: 13px; font-weight: 500;
     cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
-    font-family: inherit;
+    font-family: inherit; text-decoration: none;
   }
   .nav-btn:hover { background: #2a2f37; }
+  .nav-btn.soft {
+    background: #fff; color: var(--ink); border-color: var(--line-strong);
+  }
+  .nav-btn.soft:hover { background: #f6f6f7; }
   .popup-detail .nav-btn { padding: 7px 10px; font-size: 12.5px; border-radius: 8px; }
   .chip {
     font-size: 13px; font-weight: 500; padding: 7px 13px;
@@ -812,8 +816,14 @@ function photosHtml(p, cls) {
   return `<div class="photos ${cls || ''}">${p.photos.map(u =>
     `<img src="${escapeHtml(u)}" class="photo" alt="장소 사진">`).join('')}</div>`;
 }
+function kakaoMapUrl(p) {
+  return `https://map.kakao.com/link/map/${encodeURIComponent(p.name)},${p.lat},${p.lng}`;
+}
 function navBtnHtml(p) {
-  return `<div class="nav-bar"><button class="nav-btn" onclick="window.openDirections('${p.id}')">🧭 카카오맵으로 길찾기</button></div>`;
+  return `<div class="nav-bar">
+    <button class="nav-btn" onclick="window.openDirections('${p.id}')">🧭 카카오맵으로 길찾기</button>
+    <a class="nav-btn soft" href="${kakaoMapUrl(p)}" target="_blank" rel="noopener noreferrer">🗺 카카오맵에서 자세히 보기</a>
+  </div>`;
 }
 
 /* ---------- 지도 마커 ---------- */
@@ -1683,8 +1693,8 @@ sb.auth.onAuthStateChange((_event, session) => {
 if (typeof kakao !== 'undefined' && kakao.maps && kakao.maps.load) {
   kakao.maps.load(() => {
     map = new kakao.maps.Map(document.getElementById('map'), {
-      center: new kakao.maps.LatLng(37.5665, 126.9780),
-      level: 7
+      center: new kakao.maps.LatLng(37.4478, 126.7314),  // 인천 남동구청
+      level: 6
     });
     map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.TOPLEFT);
     pinImage = new kakao.maps.MarkerImage(
