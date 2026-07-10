@@ -840,8 +840,13 @@ function renderMarkers(filtered) {
       content: `<div class="popup-detail">
         <p class="name">${escapeHtml(p.name)}</p>
         <div style="font-size:13px;color:#8b909a">${catLabel(p.category)}${p.address ? ' · ' + escapeHtml(p.address) : ''}</div>
-        ${tagsHtml ? `<div class="tags">${tagsHtml}</div>` : ''}
+        ${p.note ? `<p class="desc">“${escapeHtml(p.note)}”</p>` : ''}
+        <div class="tags">${tagsHtml}</div>
+        ${photosHtml(p)}
+        ${reactionBarHtml(p)}
+        ${reasonsHtml(p)}
         ${navBtnHtml(p)}
+        ${p.created_by_nickname ? `<div class="byline" style="margin-top:10px;text-align:right">${escapeHtml(p.created_by_nickname)}님이 올림</div>` : ''}
       </div>`,
       removable: true
     });
