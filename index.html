@@ -205,12 +205,12 @@
   /* 카카오맵 링크 버튼 */
   .nav-bar { margin-top: 12px; }
   .nav-btn {
-    width: 100%; border: 1px solid var(--ink); background: var(--ink); color: #fff;
+    width: 100%; border: 1px solid var(--accent); background: #fff; color: var(--accent-dark);
     border-radius: 10px; padding: 9px 12px; font-size: 13px; font-weight: 500;
     cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
     font-family: inherit; text-decoration: none;
   }
-  .nav-btn:hover { background: #2a2f37; }
+  .nav-btn:hover { background: var(--accent-soft); }
   .popup-detail .nav-btn { padding: 7px 10px; font-size: 12.5px; border-radius: 8px; }
   .chip {
     font-size: 13px; font-weight: 500; padding: 7px 13px;
@@ -374,8 +374,9 @@
   .detail-card {
     display: none; position: absolute; left: 0; right: 0; bottom: 0; z-index: 1700;
     background: #fff; border-top-left-radius: 20px; border-top-right-radius: 20px;
-    box-shadow: 0 -6px 24px rgba(28,32,40,.14); padding: 18px 20px 26px;
-    max-height: 60%; overflow-y: auto;
+    box-shadow: 0 -6px 24px rgba(28,32,40,.14);
+    padding: 18px 20px calc(26px + env(safe-area-inset-bottom, 0px));
+    max-height: 75%; overflow-y: auto;
   }
   .detail-card .dc-name { font-size: 18px; font-weight: 700; letter-spacing: -.01em; }
   .detail-card .dc-addr { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
