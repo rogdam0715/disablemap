@@ -470,7 +470,24 @@
   .close-x { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--faint); line-height: 1; }
   .close-x:hover { color: var(--ink); }
 
-  .popup-detail { min-width: 220px; max-width: 280px; padding: 14px 16px; }
+  .popup-detail {
+    position: relative;
+    min-width: 220px; max-width: 280px; padding: 14px 16px 14px;
+    background: #fff; border-radius: 12px; box-shadow: 0 6px 20px rgba(28,32,40,.18);
+    border: 1px solid rgba(0,0,0,.06);
+  }
+  .popup-detail::after {
+    content: ""; position: absolute; left: 50%; bottom: -8px; transform: translateX(-50%);
+    width: 14px; height: 14px; background: #fff;
+    border-right: 1px solid rgba(0,0,0,.06); border-bottom: 1px solid rgba(0,0,0,.06);
+    transform: translateX(-50%) rotate(45deg);
+  }
+  .popup-close {
+    position: absolute; top: 6px; right: 6px; width: 26px; height: 26px;
+    border: none; background: transparent; font-size: 18px; line-height: 1; color: var(--faint);
+    cursor: pointer; padding: 0; border-radius: 6px;
+  }
+  .popup-close:hover { background: #f2f3f5; color: var(--ink); }
   .popup-detail .name { font-size: 15px; font-weight: 700; margin: 0 0 4px; }
   .popup-detail .desc { font-size: 13px; color: var(--muted); margin: 7px 0; font-style: italic; }
 
@@ -763,13 +780,13 @@ let pinImage;                                         // 같이 초기화되는 
 const Pt = (lat, lng) => new kakao.maps.LatLng(lat, lng);
 
 let markers = {};            // place id → kakao.maps.Marker
-let infoWindows = {};        // place id → kakao.maps.InfoWindow
-let currentIW = null;        // 현재 열려 있는 InfoWindow
+let infoWindows = {};        // place id → kakao.maps.CustomOverlay
+let currentIW = null;        // 현재 열려 있는 CustomOverlay
 let pickedLatLng = null;
 let pickedKakaoUrl = null;   // 검색 결과에서 딸려오는 카카오 상세페이지 URL (place.map.kakao.com/{id})
 let tempMarker = null;
 
-function closeInfoWindow() { if (currentIW) { currentIW.close(); currentIW = null; } }
+function closeInfoWindow() { if (currentIW) { currentIW.setMap(null); currentIW = null; } }
 
 const catLabel = c => c === 'cafe' ? '☕ 카페' : c === 'leisure' ? '🎲 여가/놀이' : '🍚 식당';
 const catShort = c => c === 'cafe' ? '카페' : c === 'leisure' ? '여가/놀이' : '식당';
@@ -836,19 +853,25 @@ function renderMarkers(filtered) {
   filtered.forEach(p => {
     const m = new kakao.maps.Marker({ position: Pt(p.lat, p.lng), map: map, image: pinImage });
     const tagsHtml = (p.tags || []).map(t => `<span class="tag">${escapeHtml(tagDisplay(t))}</span>`).join(' ');
-    const iw = new kakao.maps.InfoWindow({
-      content: `<div class="popup-detail">
-        <p class="name">${escapeHtml(p.name)}</p>
-        <div style="font-size:13px;color:#8b909a">${catLabel(p.category)}${p.address ? ' · ' + escapeHtml(p.address) : ''}</div>
-        ${p.note ? `<p class="desc">“${escapeHtml(p.note)}”</p>` : ''}
-        <div class="tags">${tagsHtml}</div>
-        ${photosHtml(p)}
-        ${reactionBarHtml(p)}
-        ${reasonsHtml(p)}
-        ${navBtnHtml(p)}
-        ${p.created_by_nickname ? `<div class="byline" style="margin-top:10px;text-align:right">${escapeHtml(p.created_by_nickname)}님이 올림</div>` : ''}
-      </div>`,
-      removable: true
+    const el = document.createElement('div');
+    el.innerHTML = `<div class="popup-detail">
+      <button class="popup-close" type="button" aria-label="닫기">×</button>
+      <p class="name">${escapeHtml(p.name)}</p>
+      <div style="font-size:13px;color:#8b909a">${catLabel(p.category)}${p.address ? ' · ' + escapeHtml(p.address) : ''}</div>
+      ${p.note ? `<p class="desc">“${escapeHtml(p.note)}”</p>` : ''}
+      <div class="tags">${tagsHtml}</div>
+      ${photosHtml(p)}
+      ${reactionBarHtml(p)}
+      ${reasonsHtml(p)}
+      ${navBtnHtml(p)}
+      ${p.created_by_nickname ? `<div class="byline" style="margin-top:10px;text-align:right">${escapeHtml(p.created_by_nickname)}님이 올림</div>` : ''}
+    </div>`;
+    el.querySelector('.popup-close').addEventListener('click', closeInfoWindow);
+    const iw = new kakao.maps.CustomOverlay({
+      content: el,
+      position: Pt(p.lat, p.lng),
+      xAnchor: 0.5, yAnchor: 1.1,   // 마커 위쪽에 살짝 띄워 배치
+      zIndex: 10,
     });
     kakao.maps.event.addListener(m, 'click', () => selectPlace(p.id, false));
     markers[p.id] = m;
@@ -858,8 +881,8 @@ function renderMarkers(filtered) {
 
 function openMarkerPopup(id) {
   closeInfoWindow();
-  const m = markers[id], iw = infoWindows[id];
-  if (m && iw) { iw.open(map, m); currentIW = iw; }
+  const iw = infoWindows[id];
+  if (iw) { iw.setMap(map); currentIW = iw; }
 }
 
 /* ---------- 목록/필터 ---------- */
