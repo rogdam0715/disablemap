@@ -769,6 +769,7 @@ let markers = {};            // place id → kakao.maps.Marker
 let infoWindows = {};        // place id → kakao.maps.InfoWindow
 let currentIW = null;        // 현재 열려 있는 InfoWindow
 let pickedLatLng = null;
+let pickedKakaoUrl = null;   // 검색 결과에서 딸려오는 카카오 상세페이지 URL (place.map.kakao.com/{id})
 let tempMarker = null;
 
 function closeInfoWindow() { if (currentIW) { currentIW.close(); currentIW = null; } }
@@ -817,7 +818,11 @@ function photosHtml(p, cls) {
     `<img src="${escapeHtml(u)}" class="photo" alt="장소 사진">`).join('')}</div>`;
 }
 function kakaoMapUrl(p) {
-  return `https://map.kakao.com/link/map/${encodeURIComponent(p.name)},${p.lat},${p.lng}`;
+  // 저장된 카카오 상세 URL이 있으면 그걸로 (사진·리뷰·영업시간까지 정확히 접근)
+  if (p.kakao_place_url) return p.kakao_place_url;
+  // 폴백: 이름+주소로 카카오맵 검색 페이지 (구 데이터용)
+  const q = [p.name, p.address].filter(Boolean).join(' ');
+  return `https://map.kakao.com/link/search/${encodeURIComponent(q)}`;
 }
 function navBtnHtml(p) {
   return `<div class="nav-bar">
@@ -1456,6 +1461,7 @@ function resetForm() {
   document.querySelectorAll('#tagPick input').forEach(c => c.checked = false);
   formPhotos = []; uploadingCount = 0; renderPhotoThumbs();
   pickedLatLng = null;
+  pickedKakaoUrl = null;
 }
 
 function openEditModal(id) {
@@ -1476,6 +1482,7 @@ function openEditModal(id) {
   document.querySelectorAll('#tagPick input').forEach(c => c.checked = (p.tags || []).includes(c.value));
   formPhotos = [...(p.photos || [])]; uploadingCount = 0; renderPhotoThumbs();
   pickedLatLng = { lat: p.lat, lng: p.lng };
+  pickedKakaoUrl = p.kakao_place_url || null;
   openModal();
 }
 /* ---------- 장소 검색 (카카오 Places) ---------- */
@@ -1546,6 +1553,7 @@ function pickSearchResult(r) {
   document.getElementById('f-name').value = name;
   document.getElementById('f-addr').value = addr;
   pickedLatLng = { lat: parseFloat(r.y), lng: parseFloat(r.x) };
+  pickedKakaoUrl = r.place_url || null;
   searchResults.classList.remove('show');
   if (map) {
     if (tempMarker) tempMarker.setMap(null);
@@ -1589,6 +1597,7 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
     address: document.getElementById('f-addr').value.trim(),
     note: document.getElementById('f-note').value.trim(),
     tags, photos: formPhotos, lat: pickedLatLng.lat, lng: pickedLatLng.lng,
+    kakao_place_url: pickedKakaoUrl,
   };
   if (tempMarker) { tempMarker.setMap(null); tempMarker = null; }
   const saveBtn = document.getElementById('saveBtn'); saveBtn.disabled = true;
